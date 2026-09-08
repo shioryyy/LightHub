@@ -37,6 +37,14 @@ try {
     }
     [IO.File]::WriteAllLines((Join-Path $stage 'SHA256SUMS.txt'),[string[]]$entries,[Text.UTF8Encoding]::new($false))
     if ($Runtime.StartsWith('win-')) { Compress-Archive -Path $stage -DestinationPath "$stage.zip" -Force; Get-FileHash "$stage.zip" }
-    else { & (Join-Path $PSScriptRoot 'unix-archive.ps1') -Source $stage -Destination "$stage.tar.gz"; Get-FileHash "$stage.tar.gz" }
+    else {
+        # GitHub's Linux runner has a native tar with predictable Unix mode handling;
+        # avoid relying on PowerShell/.NET Tar API availability across pwsh versions.
+        & chmod +x (Join-Path $stage 'LightHub.Desktop') (Join-Path $stage 'LightHub.Cli')
+        if ($LASTEXITCODE -ne 0) { throw 'Failed to set Unix executable modes' }
+        & tar -czf "$stage.tar.gz" -C (Split-Path $stage -Parent) (Split-Path $stage -Leaf)
+        if ($LASTEXITCODE -ne 0) { throw 'Archive failed' }
+        Get-FileHash "$stage.tar.gz"
+    }
     Write-Output "Package directory: $stage"
 } finally { Pop-Location }
