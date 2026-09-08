@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LightHub.Application/LightHub.Application.csproj" />
+    <Project Path="src/LightHub.Cli/LightHub.Cli.csproj" />
+    <Project Path="src/LightHub.Core/LightHub.Core.csproj" />
+    <Project Path="src/LightHub.Desktop/LightHub.Desktop.csproj" />
+    <Project Path="src/LightHub.Hid/LightHub.Hid.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LightHub.LockProbe/LightHub.LockProbe.csproj" />
+    <Project Path="tests/LightHub.Tests/LightHub.Tests.csproj" />
+  </Folder>
+</Solution>

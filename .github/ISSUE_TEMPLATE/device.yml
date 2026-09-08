@@ -1,0 +1,15 @@
+name: Device support
+description: Contribute evidence for a new model or platform
+body:
+  - type: input
+    id: model
+    attributes: {label: Model, firmware and operating system}
+    validations: {required: true}
+  - type: textarea
+    id: diagnostics
+    attributes: {label: CLI inspect output or exported redacted diagnostics}
+    validations: {required: true}
+  - type: textarea
+    id: evidence
+    attributes: {label: Tested behavior, description: State read-only observations separately from write, restore, power-cycle and physical button tests. Do not enable write support without protocol review.}
+    validations: {required: true}

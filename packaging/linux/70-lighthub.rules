@@ -1,0 +1,2 @@
+# Logitech HID devices, active local desktop user only. No world-writable permissions.
+ACTION=="add|change", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="046d", TAG+="uaccess"

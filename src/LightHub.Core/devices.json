@@ -1,0 +1,6 @@
+[
+  {"id":"g-pro-wireless","name":"G PRO Wireless","productIds":["4079","C088"],"platformsWithWriteEvidence":["windows"],"firmwareWithEvidence":["BOT 74.02.0026"],"connectionsWithEvidence":["C539:receiver"],"verifiedOperations":["RuntimeDpi","WriteProfile","RestoreProfile"],"memoryModel":1,"profileFormat":3,"macroFormat":1,"profiles":5,"buttons":8,"sectorSize":255,"sectorCount":16,"evidence":"docs/validation/gpw1-windows.md"},
+  {"id":"g305","name":"G305 / G304","productIds":["4074"],"platformsWithWriteEvidence":[],"evidence":"Identification only; no LightHub write evidence"},
+  {"id":"g-pro-x-superlight","name":"G PRO X Superlight","productIds":["4093","C094"],"platformsWithWriteEvidence":[],"evidence":"Identification only; no LightHub write evidence"},
+  {"id":"g502-hero","name":"G502 HERO","productIds":["C08B"],"platformsWithWriteEvidence":[],"evidence":"Identification only; no LightHub write evidence"}
+]

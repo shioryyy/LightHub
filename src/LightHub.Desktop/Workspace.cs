@@ -1,0 +1,388 @@
+using System.Collections.ObjectModel;
+using System.Text.Json;
+using System.Diagnostics;
+using Avalonia.Threading;
+using LightHub.Core;
+using LightHub.Application;
+using LightHub.Hid;
+
+namespace LightHub.Desktop;
+
+public sealed class Workspace : Observable
+{
+    public Strings L { get; private set; } = new();
+    public bool Demo { get; }
+    public TransactionStore Store { get; }
+    public LocalAssets Assets { get; }
+    private DeviceSession? session;
+    private bool refreshingRuntime;
+    private bool runtimeStale;
+    private DateTimeOffset nextBatteryRead;
+    private Telemetry? lastTelemetry;
+    public ObservableCollection<LocalPreset> Presets { get; } = [];
+    public LocalPreset? SelectedPreset { get; set; }
+    public string PresetName { get; set; } = "";
+    public int ReplacementStage { get; set; } = -1;
+    private readonly DispatcherTimer draftTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private readonly DispatcherTimer previewTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    public bool Previewing => session?.Previewing == true;
+    public bool CanEndPreview => !busy && Previewing;
+    private IReadOnlyDictionary<DeviceOperation, SupportDecision> operations = new Dictionary<DeviceOperation, SupportDecision>();
+    public bool CanActivate => !busy && !Demo && !dirty && !connectionChanged && !RecoveryRequired && !Previewing && operations.GetValueOrDefault(DeviceOperation.Activate)?.CanWrite == true;
+    public string ActivationReason => operations.GetValueOrDefault(DeviceOperation.Activate)?.Reason ?? "Read device capabilities first.";
+    public bool RecoveryRequired { get; private set; }
+    public ObservableCollection<DeviceEndpoint> Devices { get; } = [];
+    public ObservableCollection<ProfileItem> Profiles { get; } = [];
+    public ObservableCollection<DpiStage> Stages { get; } = [];
+    public ObservableCollection<ButtonEditor> Buttons { get; } = [];
+    public ObservableCollection<BackupItem> Backups { get; } = [];
+    public IReadOnlyList<BackupItem> SelectedBackups { get; private set; } = [];
+    private string backupSummary = "";
+    public string BackupSummary { get => backupSummary; private set => Set(ref backupSummary, value); }
+    public bool CanDeleteBackups => !busy && !Demo && SelectedBackups.Count > 0 && SelectedBackups.All(b => !b.Backup.Protected);
+    public bool CanExportBackup => !busy && !Demo && SelectedBackups.Count == 1 && SelectedBackups[0].Backup.Readable;
+    public bool CanRestoreSelectedBackup => CanExportBackup && CanRead;
+    public bool CanManageBackups => !busy && !Demo;
+    public IReadOnlyList<DeviceRule> Catalog => DeviceCatalog.Load().Rules;
+    public string CompatibilityText => L.Chinese ? "HID++ 游戏鼠标 · Windows / Linux / macOS\n设备可被识别不等于已验证可写。可写状态由型号、内存格式和平台的验证记录共同决定。" : "HID++ gaming mice · Windows / Linux / macOS\nDiscovery is not a write-support claim. Write access requires matching model, memory layout and platform evidence.";
+    private string recoveryText = "";
+    public string RecoveryText => recoveryText;
+    public DeviceEndpoint? Endpoint { get; set; }
+    public DeviceSnapshot? Snapshot { get; private set; }
+    public SupportDecision? Support { get; private set; }
+    public DpiCapabilities? DpiCaps { get; private set; }
+    public int[] Rates { get; private set; } = [125, 250, 500, 1000];
+    private decimal? currentDpi;
+    public decimal? CurrentDpi { get => currentDpi; set { if (Set(ref currentDpi, value) && Previewing) { previewTimer.Stop(); previewTimer.Start(); } } }
+    public decimal MinimumDpi => DpiCaps?.Minimum ?? 100;
+    public decimal MaximumDpi => DpiCaps?.Maximum ?? 25600;
+    public decimal DpiStep => DpiCaps?.Step is > 0 ? DpiCaps.Step : 50;
+    public bool CanSetCurrentDpi => !busy && !Demo && !connectionChanged && !RecoveryRequired && operations.GetValueOrDefault(DeviceOperation.RuntimeDpi)?.CanWrite == true;
+    public int Sector { get; private set; }
+    public string ButtonProfileLabel => Profiles.FirstOrDefault(p => p.Sector == Sector)?.Label ?? L["Buttons"];
+    public bool HasButtonMap => Snapshot is { Layout.ButtonCount: 8 } s && s.Identity.ProductIds.Intersect(new[] { "4079", "C088" }, StringComparer.OrdinalIgnoreCase).Any();
+    private ButtonEditor? selectedButton;
+    public ButtonEditor? SelectedButton
+    {
+        get => selectedButton;
+        set
+        {
+            if (!Set(ref selectedButton, value)) return;
+            foreach (var button in Buttons) button.Highlighted = button == value;
+        }
+    }
+    public string[] StageNames => Enumerable.Range(1, 5).Select(i => L["Stage"] + " " + i).ToArray();
+    public string[] ShiftNames => new[] { L["None"] }.Concat(StageNames).ToArray();
+    private bool busy, dirty, activate, loading, writing, profileReadable, connectionChanged;
+    private int defaultIndex, shiftSelection, rate;
+    private string status = "", details = "", telemetry = "", diagnostics = "", summary = "";
+    private CancellationTokenSource? cancellation;
+    public bool Busy => busy;
+    public bool Idle => !busy;
+    public bool Dirty => dirty;
+    public bool HasSnapshot => Snapshot is not null;
+    public bool CanRead => !busy && Endpoint is not null && !Demo;
+    public bool CanEdit => !busy && HasSnapshot && profileReadable;
+    public bool CanWrite => CanEdit && Support?.CanWrite == true && !Demo && !connectionChanged && !runtimeStale && !RecoveryRequired && !Previewing && Snapshot?.Mode == 1;
+    public bool CanUndo => !busy && dirty;
+    public bool CanCancel => busy && !writing;
+    public string DirtyText => dirty ? L["Dirty"] : Demo ? L["Demo"] : "";
+    public string DeviceName => Snapshot?.Identity.Name ?? L["Select"];
+    public string DeviceDetails { get => details; private set => Set(ref details, value); }
+    public string TelemetryText { get => telemetry; private set => Set(ref telemetry, value); }
+    public string DiagnosticText { get => diagnostics; private set => Set(ref diagnostics, value); }
+    public string DiscoverySummary { get => summary; private set => Set(ref summary, value); }
+    public string SupportText => Demo ? L["Demo"] : Support is null ? "" : (Support.CanWrite ? L["Writable"] : L["ReadOnly"]) + " · " + Support.Reason;
+    public string Status { get => status; set => Set(ref status, value); }
+    public bool Activate { get => activate; set { if (Set(ref activate, value)) MarkDirty(); } }
+    public int DefaultIndex { get => defaultIndex; set { if (Set(ref defaultIndex, value)) MarkDirty(); } }
+    public int ShiftSelection { get => shiftSelection; set { if (Set(ref shiftSelection, value)) MarkDirty(); } }
+    public int Rate { get => rate; set { if (Set(ref rate, value)) MarkDirty(); } }
+    public Workspace(bool demo, TransactionStore? store = null)
+    {
+        Demo = demo; Store = store ?? new(demo ? Path.Combine(Path.GetTempPath(), "LightHub-demo", Guid.NewGuid().ToString("N")) : null); Assets = new(Store.Root); Status = L["Ready"]; PresetName = L["NewPreset"];
+        draftTimer.Tick += async (_, _) =>
+        {
+            draftTimer.Stop(); if (!dirty || Demo) return;
+            try { var draft = CreatePreset(); await Task.Run(() => Assets.SaveDraft(draft)); }
+            catch (Exception ex) { Store.Log(ex); Status = L["DraftNotSaved"]; }
+        };
+        previewTimer.Tick += async (_, _) =>
+        {
+            if (busy) return;
+            previewTimer.Stop(); if (!Previewing || !CanSetCurrentDpi) return;
+            try { await Run(L["SetCurrentDpi"], _ => ApplyCurrentDpi(), true); }
+            catch (Exception ex) { Store.Log(ex); }
+        };
+    }
+    public void SetLanguage(bool chinese)
+    {
+        var preservedDraft = Snapshot is not null && profileReadable ? Draft() : null;
+        bool wasDirty = dirty;
+        loading = true;
+        L = new(chinese); foreach (string name in new[] { nameof(L), nameof(StageNames), nameof(ShiftNames), nameof(CompatibilityText), nameof(SupportText), nameof(DeviceName) }) Changed(name);
+        if (Snapshot is not null)
+        {
+            FillProfiles(); LoadProfile(Sector); if (preservedDraft is not null) SetDraft(preservedDraft, wasDirty);
+        }
+        loading = false;
+        Changed(nameof(DefaultIndex)); Changed(nameof(ShiftSelection)); Changed(nameof(Rate));
+        NotifyState();
+    }
+    public void MarkDirty() { if (loading || Snapshot is null) return; dirty = true; if (!Demo) { draftTimer.Stop(); draftTimer.Start(); } NotifyState(); }
+    public void InvalidateConnection()
+    {
+        connectionChanged = true;
+        session?.Invalidate();
+        Status = L.Chinese ? "设备连接已变化，请刷新。未保存的编辑已保留。" : "Device connection changed. Refresh to reconnect; unsaved edits are retained.";
+        NotifyState();
+    }
+    private void NotifyState() { foreach (string name in new[] { nameof(Busy), nameof(Idle), nameof(Dirty), nameof(HasSnapshot), nameof(HasButtonMap), nameof(CanRead), nameof(CanEdit), nameof(CanWrite), nameof(CanSetCurrentDpi), nameof(MinimumDpi), nameof(MaximumDpi), nameof(DpiStep), nameof(CanUndo), nameof(CanCancel), nameof(DirtyText), nameof(CanDeleteBackups), nameof(CanExportBackup), nameof(CanRestoreSelectedBackup), nameof(CanManageBackups), nameof(CanActivate), nameof(ActivationReason), nameof(Previewing), nameof(CanEndPreview) }) Changed(name); }
+    public async Task Run(string message, Func<CancellationToken, Task> action, bool mutation = false)
+    {
+        if (busy) return; busy = true; writing = mutation; cancellation = new(); Status = message; NotifyState();
+        try { await action(cancellation.Token); }
+        catch (OperationCanceledException) { Status = L["Cancel"]; }
+        catch (Exception ex) { Store.Log(ex); Status = L["Error"] + ": " + ex.Message; DiagnosticText = ex.Message; throw; }
+        finally { cancellation.Dispose(); cancellation = null; busy = writing = false; await RefreshBackupsAsync(); NotifyState(); }
+    }
+    public void Cancel() { if (!writing) cancellation?.Cancel(); }
+    public async Task Scan(CancellationToken cancel)
+    {
+        if (Demo) { LoadDemo(); await RefreshBackupsAsync(); return; }
+        var result = await Task.Run(() => HidDiscovery.Scan(cancel), cancel);
+        Devices.Clear(); foreach (var d in result.Devices) Devices.Add(d);
+        DiscoverySummary = result.Devices.Count == 0 ? L["NoDevice"] : result.Devices.Count + " " + L["Devices"];
+        DiagnosticText = string.Join("\n", result.Warnings); Status = DiscoverySummary;
+        Snapshot = null; Support = null; Endpoint = null; Profiles.Clear(); Stages.Clear(); Buttons.Clear(); dirty = false; Changed(nameof(DeviceName)); Changed(nameof(SupportText));
+        DeviceDetails = TelemetryText = "";
+    }
+    public async Task Read(CancellationToken cancel)
+    {
+        if (Endpoint is null) return;
+        var endpoint = Endpoint;
+        Snapshot = null; Support = null; Profiles.Clear(); Stages.Clear(); Buttons.Clear(); dirty = false;
+        DeviceDetails = TelemetryText = ""; Changed(nameof(DeviceName)); Changed(nameof(SupportText)); NotifyState();
+        session?.Dispose(); session = new(new HidDeviceAccess(endpoint, Store.Root), Store);
+        var result = await session.Read(cancel);
+        operations = result.Operations;
+        Snapshot = result.Snapshot; Support = result.Support; DpiCaps = result.DpiCaps; Rates = result.Rates; connectionChanged = runtimeStale = false; Changed(nameof(Rates));
+        DeviceDetails = $"{string.Join(" / ", Snapshot.Identity.ProductIds)} · {Snapshot.Identity.Firmware} · {DeviceCatalog.Platform}";
+        UpdateTelemetry(result.Telemetry);
+        FillProfiles(); LoadProfile(Snapshot.ActiveSector); DiagnosticText = RedactedDiagnostics();
+        Status = Store.Pending().Any(r => r.UnitId == Snapshot.Identity.UnitId) ? L["Pending"] : L["Reconnected"];
+        if (session.HasUnfinishedPreview) Status = L["PreviewUnknown"];
+        Changed(nameof(DeviceName)); Changed(nameof(SupportText));
+    }
+    private void UpdateTelemetry(Telemetry t)
+    {
+        lastTelemetry = t;
+        Set(ref currentDpi, (decimal?)t.Dpi, nameof(CurrentDpi));
+        string battery = t.BatteryPercent is { } percent
+            ? (L.Chinese ? $"电量 {percent}%" : $"Battery {percent}%")
+            : t.BatteryMillivolts is int millivolts && millivolts > 0
+                ? (L.Chinese ? $"电量未知 · 电压 {millivolts / 1000.0:F3} V" : $"Battery unknown · {millivolts / 1000.0:F3} V")
+                : (L.Chinese ? "电量未知" : "Battery unknown");
+        TelemetryText = $"{t.Dpi?.ToString() ?? "?"} DPI   ·   {t.PollingRate?.ToString() ?? "?"} Hz   ·   {(Snapshot!.Mode == 1 ? L["Onboard"] : L["Host"])}   ·   {battery}";
+    }
+    public async Task RefreshRuntime()
+    {
+        if (busy || refreshingRuntime || Demo || connectionChanged || Previewing || session is null || Snapshot is null) return;
+        refreshingRuntime = true; var currentSession = session;
+        try
+        {
+            bool battery = DateTimeOffset.UtcNow >= nextBatteryRead;
+            var state = await currentSession.ReadRuntime(battery);
+            if (session != currentSession || busy || Snapshot is null) return;
+            bool changedState = Snapshot.Mode != state.Mode || Snapshot.ActiveSector != state.ActiveSector || Snapshot.DpiIndex != state.DpiIndex || Snapshot.SensorDpi != state.Telemetry.Dpi;
+            // Keep the edit baseline for conflict detection. A hardware action must not silently rebase a draft.
+            if (changedState) { runtimeStale = true; Status = L.Chinese ? "鼠标运行状态已变化；显示已更新。保存前请重新读取，草稿已保留。" : "Mouse state changed; display updated. Read again before saving; draft retained."; }
+            var telemetry = state.Telemetry;
+            if (!battery && lastTelemetry is { } previous) telemetry = telemetry with { BatteryPercent = previous.BatteryPercent, BatteryMillivolts = previous.BatteryMillivolts };
+            if (battery) nextBatteryRead = DateTimeOffset.UtcNow.AddSeconds(30);
+            UpdateTelemetry(telemetry);
+            TelemetryText += L.Chinese ? $"   ·   当前槽 {state.ActiveSector} / 档位 {state.DpiIndex + 1}" : $"   ·   Active slot {state.ActiveSector} / stage {state.DpiIndex + 1}";
+            NotifyState();
+        }
+        catch (Exception ex)
+        {
+            Store.Log(ex); TelemetryText = L.Chinese ? "设备状态读取失败，请唤醒鼠标并重新读取。" : "Device state unavailable. Wake the mouse and read again.";
+            connectionChanged = true; NotifyState();
+        }
+        finally { refreshingRuntime = false; }
+    }
+    private void FillProfiles()
+    {
+        Profiles.Clear(); foreach (var entry in Snapshot!.Directory()) Profiles.Add(new(entry.Sector, $"{L["Profile"]} {entry.Slot} · {(entry.Enabled ? L["Enabled"] : L["Disabled"])}{(Snapshot.ActiveSector == entry.Sector ? " ●" : "")}"));
+    }
+    public void LoadProfile(int sector)
+    {
+        if (Snapshot is null) return; loading = true; Sector = sector;
+        try
+        {
+            var p = MouseProfile.Decode(Snapshot.Sectors[sector], Snapshot.Layout); profileReadable = true;
+            Stages.Clear(); Buttons.Clear();
+            for (int i = 0; i < 5; i++) { var stage = new DpiStage(i + 1, p.Dpi[i]); stage.PropertyChanged += (_, _) => MarkDirty(); Stages.Add(stage); }
+            for (int i = 0; i < p.Bindings.Length; i++) { var button = new ButtonEditor(i + 1, p.Bindings[i], L, HasButtonMap); button.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ButtonEditor.Selected)) MarkDirty(); }; Buttons.Add(button); }
+            SelectedButton = Buttons.FirstOrDefault();
+            DefaultIndex = p.DefaultIndex; ShiftSelection = p.ShiftIndex == 255 ? 0 : p.ShiftIndex + 1; Rate = p.Rate; Activate = false; ReplacementStage = -1; dirty = false;
+        }
+        catch (Exception ex) when (ex is IOException) { Stages.Clear(); Buttons.Clear(); Status = ex.Message; profileReadable = false; }
+        finally { loading = false; Changed(nameof(ButtonProfileLabel)); NotifyState(); }
+    }
+    public MouseProfile Draft()
+    {
+        return new(Rate, Stages.Select(s => s.Enabled ? checked((int)(s.Value ?? throw new InvalidDataException("DPI is empty."))) : 0).ToArray(), DefaultIndex, ShiftSelection == 0 ? 255 : ShiftSelection - 1, Buttons.Select(b => b.Selected.Bytes).ToArray());
+    }
+    public void ValidateDraft()
+    {
+        if (Snapshot is null || DpiCaps is null) throw new InvalidOperationException("No editable device.");
+        _ = Draft().Encode(Snapshot.Sectors[Sector], Snapshot.Layout, DpiCaps, Rates);
+        if (Sector == Snapshot.ActiveSector)
+        {
+            int stage = ReplacementStage < 0 ? Snapshot.DpiIndex : ReplacementStage;
+            if (stage > 4 || Draft().Dpi[stage] == 0) throw new InvalidDataException(L["ReplacementStageRequired"]);
+        }
+    }
+    public string ChangeSummary()
+    {
+        ValidateDraft(); var draft = Draft(); var old = MouseProfile.Decode(Snapshot!.Sectors[Sector], Snapshot.Layout);
+        var lines = new List<string> { $"{Snapshot.Identity.Name} · {L["Profile"]} {Profiles.First(p => p.Sector == Sector).Label}", $"DPI: {string.Join(" / ", draft.Dpi.Where(d => d > 0))}", $"{L["Default"]}: {draft.DefaultIndex + 1}; {L["Shift"]}: {(draft.ShiftIndex == 255 ? L["None"] : (draft.ShiftIndex + 1).ToString())}", $"{L["Rate"]}: {draft.Rate} Hz", $"{L["Activate"]}: {Activate}" };
+        lines.AddRange(Enumerable.Range(0, Buttons.Count).Where(i => !old.Bindings[i].SequenceEqual(draft.Bindings[i])).Select(i => $"{Buttons[i].Label}: {Buttons[i].Selected.Label}")); return string.Join("\n", lines);
+    }
+    public async Task Apply()
+    {
+        if (Demo || Endpoint is null || Snapshot is null) throw new InvalidOperationException("Hardware writes are unavailable.");
+        var original = Snapshot; var draft = Draft(); int sector = Sector;
+        var timer = Stopwatch.StartNew();
+        var result = await session!.Save(original, sector, draft, ReplacementStage < 0 ? null : ReplacementStage, p => Dispatcher.UIThread.Post(() => Status = L[p]));
+        Snapshot = result.Snapshot; UpdateTelemetry(result.Telemetry);
+        FillProfiles(); LoadProfile(sector); DiagnosticText = RedactedDiagnostics();
+        Status = L["Saved"] + $" ({timer.Elapsed.TotalSeconds:F2} s)";
+    }
+    public async Task ApplyCurrentDpi()
+    {
+        if (Demo || Endpoint is null || Snapshot is null || connectionChanged || RecoveryRequired)
+            throw new InvalidOperationException("Current DPI control is unavailable.");
+        int dpi = checked((int)(CurrentDpi ?? throw new InvalidDataException("DPI is empty.")));
+        if (CurrentDpi != dpi) throw new InvalidDataException("DPI must be an integer.");
+        var baseline = Snapshot; var timer = Stopwatch.StartNew();
+        try
+        {
+            CurrentDpi = await session!.Preview(baseline, dpi); Status = L["CurrentDpiApplied"] + $" ({timer.Elapsed.TotalMilliseconds:F0} ms)";
+        }
+        catch { connectionChanged = true; NotifyState(); throw; }
+    }
+    public async Task Export(string path, CancellationToken cancel)
+    {
+        if (Demo || Endpoint is null) return;
+        await session!.Export(path, cancel); Status = path;
+    }
+    public async Task Restore(string path)
+    {
+        if (Demo || Endpoint is null) return;
+        await session!.Restore(path, p => Dispatcher.UIThread.Post(() => Status = p));
+        await Read(CancellationToken.None); Status = L["Saved"];
+    }
+    public string RedactedDiagnostics() => JsonSerializer.Serialize(new { app = "LightHub 0.3.0-alpha.1", platform = DeviceCatalog.Platform, runtime = Environment.Version.ToString(), os = Environment.OSVersion.VersionString, model = Snapshot?.Identity.Name, productIds = Snapshot?.Identity.ProductIds, firmware = Snapshot?.Identity.Firmware, layout = Snapshot?.Layout, support = Support, operations, dpiCapabilities = DpiCaps, rates = Rates }, Json.Options);
+    public async Task RefreshBackupsAsync()
+    {
+        try
+        {
+            var result = await Task.Run(() => (Files: Store.ListBackups(), Pending: Store.Pending(), Presets: Assets.List()));
+            Backups.Clear(); SelectedBackups = []; foreach (var file in result.Files) Backups.Add(new(file, L));
+            Presets.Clear(); foreach (var preset in result.Presets) Presets.Add(preset);
+            RecoveryRequired = result.Pending.Any(r => r.UnitId == Snapshot?.Identity.UnitId);
+            recoveryText = result.Pending.Count > 0 ? L["Pending"] : ""; Changed(nameof(RecoveryText));
+            BackupSummary = string.Format(L["BackupSummary"], result.Files.Count, result.Files.Sum(f => f.Bytes) / 1024.0, result.Files.Count(f => f.Protected));
+        }
+        catch (Exception ex) { RecoveryRequired = true; BackupSummary = L["BackupUnavailable"] + " " + ex.Message; }
+        NotifyState();
+    }
+    public async Task EndPreview()
+    {
+        previewTimer.Stop();
+        if (session is null) return;
+        bool restored;
+        try { restored = await session.EndPreview(); }
+        catch (DeviceException) { session.Dispose(); restored = false; }
+        Status = restored ? L["PreviewEnded"] : L["PreviewUnknown"];
+        if (!restored) connectionChanged = true;
+        NotifyState();
+    }
+    public void DisposeSession() { draftTimer.Stop(); previewTimer.Stop(); session?.Dispose(); session = null; }
+    public async Task ActivateSelected()
+    {
+        if (dirty || Snapshot is null || session is null) throw new InvalidOperationException("Save or discard the draft first.");
+        var result = await session.Activate(Snapshot, Sector); Snapshot = result.Snapshot; UpdateTelemetry(result.Telemetry); FillProfiles(); NotifyState();
+    }
+    public void SetDraft(MouseProfile profile, bool changed = true)
+    {
+        loading = true;
+        try
+        {
+            for (int i = 0; i < Stages.Count; i++) { Stages[i].Enabled = profile.Dpi[i] > 0; Stages[i].Value = profile.Dpi[i] > 0 ? profile.Dpi[i] : 800; }
+            for (int i = 0; i < Buttons.Count; i++)
+            {
+                var option = Buttons[i].Options.FirstOrDefault(o => o.Bytes.SequenceEqual(profile.Bindings[i])) ?? new BindingOption("Raw · " + Convert.ToHexString(profile.Bindings[i]), profile.Bindings[i]);
+                if (!Buttons[i].Options.Contains(option)) Buttons[i].Options.Add(option); Buttons[i].Selected = option;
+            }
+            Rate = profile.Rate; DefaultIndex = profile.DefaultIndex; ShiftSelection = profile.ShiftIndex == 255 ? 0 : profile.ShiftIndex + 1; dirty = changed;
+        }
+        finally { loading = false; NotifyState(); }
+    }
+    public LocalPreset CreatePreset() => LocalAssets.FromProfile(PresetName, Support?.ModelId == "demo" ? "g-pro-wireless" : Support?.ModelId ?? "unknown", Draft());
+    public async Task SavePreset() { var preset = CreatePreset(); await Task.Run(() => Assets.Save(preset)); await RefreshBackupsAsync(); }
+    public void LoadPreset(LocalPreset preset)
+    {
+        if (Snapshot is null || DpiCaps is null) throw new InvalidOperationException("Select a target device first.");
+        var profile = LocalAssets.Map(preset, Demo ? "g-pro-wireless" : Support?.ModelId ?? "unknown", Draft());
+        _ = profile.Encode(Snapshot.Sectors[Sector], Snapshot.Layout, DpiCaps, Rates); SetDraft(profile);
+    }
+    public async Task SaveDraft() { var preset = CreatePreset(); await Task.Run(() => Assets.SaveDraft(preset)); dirty = false; NotifyState(); }
+    public void RefreshBackups()
+    {
+        Backups.Clear(); SelectedBackups = [];
+        try
+        {
+            var files = Store.ListBackups();
+            foreach (var file in files) Backups.Add(new(file, L));
+            BackupSummary = string.Format(L["BackupSummary"], files.Count, files.Sum(f => f.Bytes) / 1024.0, files.Count(f => f.Protected));
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or ArgumentException or UnauthorizedAccessException)
+        {
+            Store.Log(ex); BackupSummary = L["BackupUnavailable"] + " " + ex.Message;
+        }
+        NotifyState();
+    }
+    public void SelectBackups(IEnumerable<BackupItem> items) { SelectedBackups = items.ToArray(); NotifyState(); }
+    public async Task DeleteBackups(IEnumerable<string> paths)
+    {
+        if (Demo) throw new InvalidOperationException("Backup deletion is unavailable in demo mode.");
+        var selected = paths.ToArray();
+        await Task.Run(() => Store.DeleteBackups(selected)); Status = string.Format(L["BackupsDeleted"], selected.Length);
+    }
+    public void LoadDemo()
+    {
+        Snapshot = DemoData.Create(); Support = new(false, "demo", "Demo"); DpiCaps = new([], 100, 25600, 50); Rates = [125, 250, 500, 1000];
+        FillProfiles(); LoadProfile(1); CurrentDpi = 1600; DeviceDetails = "DEMO · HID++ 2.0"; TelemetryText = "1600 DPI · 1000 Hz"; Status = L["Demo"]; DiscoverySummary = L["Demo"]; DiagnosticText = RedactedDiagnostics(); Changed(nameof(DeviceName)); Changed(nameof(SupportText)); NotifyState();
+    }
+}
+public static class DemoData
+{
+    public static DeviceSnapshot Create(int profiles = 5, int buttons = 8, int size = 255, int sectors = 16)
+    {
+        byte[] raw = [1, 3, 1, (byte)profiles, 1, (byte)buttons, (byte)sectors, (byte)(size >> 8), (byte)size, 10, 4, 0, 0, 0, 0, 0];
+        var layout = MemoryLayout.Parse(raw); var map = new SortedDictionary<int, byte[]>(); for (int i = 0; i < sectors; i++) map[i] = Enumerable.Repeat((byte)255, size).ToArray();
+        for (int i = 0; i < profiles; i++) { map[0][i * 4] = 0; map[0][i * 4 + 1] = (byte)(i + 1); map[0][i * 4 + 2] = (byte)(i == 0 ? 1 : 0); map[0][i * 4 + 3] = 0; }
+        Wire.UpdateCrc(map[0]);
+        for (int i = 1; i <= profiles; i++)
+        {
+            var data = map[i]; data[0] = 1; data[1] = 2; data[2] = 0;
+            for (int j = 0; j < 5; j++) System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(data.AsSpan(3 + j * 2, 2), (ushort)(400 << j));
+            for (int j = 0; j < buttons; j++) new byte[] { 128, 1, 0, (byte)(1 << Math.Min(j, 4)) }.CopyTo(data, 32 + j * 4);
+            Wire.UpdateCrc(data);
+        }
+        return new(2, new("G PRO Wireless", "1234ABCD", ["4079", "C088"], "BOT 74.02.0026", 3), layout, 1, 1, 2, map);
+    }
+}

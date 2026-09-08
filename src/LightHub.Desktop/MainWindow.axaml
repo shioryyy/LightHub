@@ -1,0 +1,126 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="LightHub.Desktop.MainWindow" Title="LightHub" Width="1120" Height="800" MinWidth="960" MinHeight="680" Background="#FFFFFF">
+  <Grid RowDefinitions="64,*,64" ColumnDefinitions="228,*">
+    <Border Grid.ColumnSpan="2" Background="#F4F6F7" BorderBrush="#DFE4E7" BorderThickness="0,0,0,1" Padding="22,12">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center"><TextBlock Text="LightHub" FontSize="24" FontWeight="Bold"/><TextBlock Text="0.3 ALPHA" Classes="muted" VerticalAlignment="Center" FontSize="11"/></StackPanel>
+        <ComboBox Grid.Column="1" Width="104" Name="Language" SelectionChanged="LanguageChanged" Margin="0,0,12,0"><ComboBoxItem Content="English"/><ComboBoxItem Content="简体中文"/></ComboBox>
+        <Button Grid.Column="2" Content="{Binding L[About]}" Click="AboutClicked"/>
+      </Grid>
+    </Border>
+    <Border Grid.Row="1" Background="#F4F6F7" BorderBrush="#DFE4E7" BorderThickness="0,0,1,0" Padding="14,20">
+      <Grid RowDefinitions="Auto,Auto,*,100,Auto">
+        <TextBlock Text="{Binding L[Devices]}" Classes="section" Margin="8,0,0,14"/>
+        <Button Grid.Row="1" Content="{Binding L[Scan]}" Click="ScanClicked" IsEnabled="{Binding Idle}" HorizontalAlignment="Stretch" Margin="0,0,0,16"/>
+        <ListBox Grid.Row="2" ItemsSource="{Binding Devices}" Name="DeviceList" SelectionChanged="DeviceChanged" Background="Transparent" IsEnabled="{Binding Idle}">
+          <ListBox.ItemTemplate><DataTemplate><StackPanel Spacing="5" Margin="2,8"><TextBlock Text="{Binding Name}" TextWrapping="Wrap" FontWeight="SemiBold"/><TextBlock Text="{Binding Id}" FontSize="10" Foreground="#637078"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+        <Image Grid.Row="3" Source="avares://LightHub.Desktop/Assets/mouse.png" Height="90" Opacity="0.8" Stretch="Uniform"/>
+        <TextBlock Grid.Row="4" Text="{Binding DiscoverySummary}" Classes="muted" TextWrapping="Wrap" Margin="8,12,8,0" FontSize="11"/>
+      </Grid>
+    </Border>
+    <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*" Margin="26,20,26,12">
+      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+        <StackPanel Spacing="7"><TextBlock Text="{Binding DeviceName}" FontSize="25" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding DeviceDetails}" Classes="muted" TextWrapping="Wrap"/><TextBlock Text="{Binding SupportText}" Foreground="#00795F" TextWrapping="Wrap"/></StackPanel>
+        <Button Grid.Column="1" Content="{Binding L[Read]}" Click="ReadClicked" IsEnabled="{Binding CanRead}" VerticalAlignment="Top" Margin="14,0,0,0"/>
+      </Grid>
+      <TabControl Grid.Row="1" Name="Tabs">
+        <TabItem Header="{Binding L[Profile]}">
+          <ScrollViewer Name="ProfileScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="18" Margin="0,18,8,20" IsEnabled="{Binding HasSnapshot}">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18"><ComboBox ItemsSource="{Binding Profiles}" Name="ProfileList" SelectionChanged="ProfileChanged" IsEnabled="{Binding Idle}"/><Button Grid.Column="1" Content="{Binding L[Activate]}" Click="ActivateClicked" IsEnabled="{Binding CanActivate}" ToolTip.Tip="{Binding ActivationReason}"/></Grid>
+              <Border Background="#F0F7F5" Padding="12,10" CornerRadius="4"><TextBlock Text="{Binding TelemetryText}" TextWrapping="Wrap"/></Border>
+              <Grid ColumnDefinitions="*,160,Auto" ColumnSpacing="12" IsEnabled="{Binding CanSetCurrentDpi}">
+                <TextBlock Text="{Binding L[CurrentDpi]}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                <NumericUpDown Grid.Column="1" Name="CurrentDpiInput" Value="{Binding CurrentDpi}" Minimum="{Binding MinimumDpi}" Maximum="{Binding MaximumDpi}" Increment="{Binding DpiStep}"/>
+                <Button Grid.Column="2" Content="{Binding L[SetCurrentDpi]}" Click="CurrentDpiClicked"/>
+              </Grid>
+              <Button Content="{Binding L[EndPreview]}" Click="EndPreviewClicked" IsVisible="{Binding Previewing}" IsEnabled="{Binding CanEndPreview}"/>
+              <StackPanel Spacing="12" IsEnabled="{Binding CanEdit}">
+                <TextBlock Text="{Binding L[Dpi]}" Classes="section"/>
+                <ItemsControl ItemsSource="{Binding Stages}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="5"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate><DataTemplate><StackPanel Margin="0,0,10,0" Spacing="6"><CheckBox IsChecked="{Binding Enabled}" Content="{Binding Index}"/><NumericUpDown Value="{Binding Value}" Minimum="50" Maximum="65535" Increment="50" IsEnabled="{Binding Enabled}"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="16">
+                  <StackPanel Spacing="6"><TextBlock Text="{Binding L[Default]}"/><ComboBox ItemsSource="{Binding StageNames}" SelectedIndex="{Binding DefaultIndex}"/></StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="6"><TextBlock Text="{Binding L[Shift]}"/><ComboBox ItemsSource="{Binding ShiftNames}" SelectedIndex="{Binding ShiftSelection}"/></StackPanel>
+                  <StackPanel Grid.Column="2" Spacing="6"><TextBlock Text="{Binding L[Rate]}"/><ComboBox ItemsSource="{Binding Rates}" SelectedItem="{Binding Rate}"/></StackPanel>
+                </Grid>
+                <StackPanel Spacing="6"><TextBlock Text="{Binding L[ReplacementStage]}" TextWrapping="Wrap"/><ComboBox ItemsSource="{Binding StageNames}" SelectedIndex="{Binding ReplacementStage}" Width="180" HorizontalAlignment="Left"/></StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+        <TabItem Header="{Binding L[Buttons]}">
+          <Grid RowDefinitions="Auto,*" Margin="0,18,0,12" IsEnabled="{Binding HasSnapshot}">
+            <TextBlock Text="{Binding ButtonProfileLabel}" Classes="section" Margin="0,0,0,14"/>
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <Grid IsVisible="{Binding HasButtonMap}" Width="192" RowDefinitions="Auto,*" RowSpacing="4">
+                <TextBlock Text="{Binding L[TopView]}" HorizontalAlignment="Center" Classes="muted"/>
+                <Viewbox Grid.Row="1" MaxWidth="180" MaxHeight="272" Stretch="Uniform" VerticalAlignment="Top"><Grid Width="216" Height="326">
+                  <Image Source="avares://LightHub.Desktop/Assets/mouse.png" Width="216" Height="270" VerticalAlignment="Top"/>
+                  <ItemsControl ItemsSource="{Binding Buttons}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas Width="216" Height="326"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.Styles><Style Selector="ContentPresenter"><Setter Property="Canvas.Left" Value="{Binding MapX}"/><Setter Property="Canvas.Top" Value="{Binding MapY}"/></Style></ItemsControl.Styles>
+                    <ItemsControl.ItemTemplate><DataTemplate>
+                      <Button Content="{Binding Number}" Width="32" Height="32" MinHeight="32" Padding="0" CornerRadius="16" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Classes="hotspot" Classes.selected="{Binding Highlighted}" Click="ButtonMapClicked" ToolTip.Tip="{Binding Label}"/>
+                    </DataTemplate></ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Text="{Binding L[BottomDpi]}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,263,0,0" Classes="muted" FontSize="11"/>
+                </Grid></Viewbox>
+              </Grid>
+              <ListBox Grid.Column="1" Name="ButtonList" ItemsSource="{Binding Buttons}" SelectedItem="{Binding SelectedButton}" Background="Transparent" Padding="0" IsEnabled="{Binding CanEdit}">
+                <ListBox.ItemTemplate><DataTemplate>
+                  <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6" ColumnSpacing="8" Margin="0,4,0,8">
+                    <TextBlock Text="{Binding Label}" Grid.ColumnSpan="2" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <ComboBox Grid.Row="1" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" IsEnabled="{Binding Editable}" MinWidth="150"/>
+                    <Button Grid.Row="1" Grid.Column="1" Content="⌨" ToolTip.Tip="Keyboard combination" Click="CustomKeyClicked" IsEnabled="{Binding Editable}"/>
+                  </Grid>
+                </DataTemplate></ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Grid>
+        </TabItem>
+        <TabItem Header="{Binding L[Backups]}">
+          <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,20,0,0">
+            <WrapPanel Orientation="Horizontal"><Button Content="{Binding L[Export]}" Click="ExportClicked" IsEnabled="{Binding CanRead}" Margin="0,0,12,12"/><Button Content="{Binding L[Restore]}" Click="RestoreClicked" IsEnabled="{Binding CanRead}" Margin="0,0,12,12"/><Button Content="{Binding L[Diagnostics]}" Click="DiagnosticsClicked" Margin="0,0,0,12"/></WrapPanel>
+            <WrapPanel Grid.Row="1">
+              <Button Content="{Binding L[ExportSelectedBackup]}" Click="ExportSelectedBackupClicked" IsEnabled="{Binding CanExportBackup}" Margin="0,0,8,8"/>
+              <Button Content="{Binding L[RestoreSelectedBackup]}" Click="RestoreSelectedBackupClicked" IsEnabled="{Binding CanRestoreSelectedBackup}" Margin="0,0,8,8"/>
+              <Button Content="{Binding L[DeleteBackups]}" Click="DeleteBackupsClicked" IsEnabled="{Binding CanDeleteBackups}" Margin="0,0,8,8"/>
+              <Button Content="{Binding L[CleanupBackups]}" Click="CleanupBackupsClicked" IsEnabled="{Binding CanManageBackups}" Margin="0,0,8,8"/>
+              <Button Content="↻" ToolTip.Tip="{Binding L[RefreshBackups]}" Click="RefreshBackupsClicked" IsEnabled="{Binding Idle}" Margin="0,0,0,8"/>
+              <Button Content="{Binding L[PinBackup]}" Click="PinBackupClicked" IsEnabled="{Binding CanManageBackups}" Margin="8,0,0,8"/>
+              <Button Content="{Binding L[NameBackup]}" Click="NameBackupClicked" IsEnabled="{Binding CanManageBackups}" Margin="8,0,0,8"/>
+              <Button Content="{Binding L[Trash]}" Click="TrashClicked" IsEnabled="{Binding Idle}" Margin="8,0,0,8"/>
+            </WrapPanel>
+            <TextBlock Grid.Row="2" Text="{Binding BackupSummary}" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,10"/>
+            <ListBox Grid.Row="3" ItemsSource="{Binding Backups}" Name="BackupList" SelectionMode="Multiple" SelectionChanged="BackupSelectionChanged" DoubleTapped="BackupDoubleTapped">
+              <ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="Auto,*" ColumnSpacing="10"><CheckBox IsChecked="{Binding $parent[ListBoxItem].IsSelected, Mode=TwoWay}" ToolTip.Tip="{Binding Title}"/><StackPanel Grid.Column="1" Spacing="4" Margin="0,5"><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Details}" Classes="muted"/><TextBlock Text="{Binding Name}" FontSize="10" Classes="muted" TextWrapping="Wrap"/></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
+            </ListBox>
+            <Expander Grid.Row="4" Header="{Binding L[DiagnosticDetails]}" HorizontalAlignment="Stretch" Margin="0,8,0,0"><TextBox Text="{Binding DiagnosticText}" IsReadOnly="True" AcceptsReturn="True" Height="100" TextWrapping="Wrap"/></Expander>
+          </Grid>
+        </TabItem>
+        <TabItem Header="{Binding L[Support]}">
+          <ScrollViewer><StackPanel Spacing="14" Margin="0,20,0,12"><TextBlock Text="{Binding CompatibilityText}" TextWrapping="Wrap"/><ItemsControl ItemsSource="{Binding Catalog}"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="#DFE4E7" BorderThickness="0,0,0,1" Padding="0,14"><StackPanel Spacing="6"><TextBlock Text="{Binding Name}" FontWeight="SemiBold"/><TextBlock Text="{Binding Evidence}" TextWrapping="Wrap" Classes="muted"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Text="{Binding RecoveryText}" TextWrapping="Wrap" Foreground="#9B4D13"/></StackPanel></ScrollViewer>
+        </TabItem>
+        <TabItem Header="{Binding L[Presets]}">
+          <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="0,18,0,12" RowSpacing="12" IsEnabled="{Binding Idle}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"><TextBox Text="{Binding PresetName}" MaxLength="120" PlaceholderText="{Binding L[PresetName]}"/><Button Grid.Column="1" Content="{Binding L[SavePreset]}" Click="SavePresetClicked" IsEnabled="{Binding CanEdit}"/></Grid>
+            <WrapPanel Grid.Row="1"><Button Content="{Binding L[ImportPreset]}" Click="ImportPresetClicked" Margin="0,0,8,8"/><Button Content="{Binding L[ExportPreset]}" Click="ExportPresetClicked" Margin="0,0,8,8"/><Button Content="{Binding L[RecoverDraft]}" Click="RecoverDraftClicked" IsEnabled="{Binding CanEdit}" Margin="0,0,8,8"/></WrapPanel>
+            <ListBox Grid.Row="2" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}"/>
+            <WrapPanel Grid.Row="3"><Button Content="{Binding L[LoadPreset]}" Click="LoadPresetClicked" IsEnabled="{Binding CanEdit}" Margin="0,0,8,0"/><Button Content="{Binding L[DeletePreset]}" Click="DeletePresetClicked" Margin="0,0,8,0"/><Button Content="{Binding L[RenamePreset]}" Click="RenamePresetClicked"/></WrapPanel>
+          </Grid>
+        </TabItem>
+      </TabControl>
+    </Grid>
+    <Border Grid.Row="2" Grid.ColumnSpan="2" BorderBrush="#DFE4E7" BorderThickness="0,1,0,0" Padding="22,12" Background="#F8FAFA">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
+        <StackPanel Spacing="4" VerticalAlignment="Center"><TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis"/><ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}" Height="3"/><TextBlock Text="{Binding DirtyText}" FontSize="11" Classes="muted"/></StackPanel>
+        <Button Grid.Column="1" Content="{Binding L[Cancel]}" Click="CancelClicked" IsVisible="{Binding CanCancel}"/>
+        <Button Grid.Column="2" Content="{Binding L[Undo]}" Click="UndoClicked" IsEnabled="{Binding CanUndo}"/>
+        <Button Grid.Column="3" Content="{Binding L[Apply]}" Classes="primary" Click="ApplyClicked" IsEnabled="{Binding CanWrite}"/>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

@@ -1,0 +1,18 @@
+name: Bug report
+description: Report a reproducible application or device problem
+body:
+  - type: input
+    id: version
+    attributes: {label: LightHub version and operating system}
+    validations: {required: true}
+  - type: input
+    id: hardware
+    attributes: {label: Device model, firmware, USB or receiver connection}
+    validations: {required: true}
+  - type: textarea
+    id: steps
+    attributes: {label: Steps, expected result and actual result}
+    validations: {required: true}
+  - type: textarea
+    id: diagnostics
+    attributes: {label: Redacted diagnostics, description: Use Export diagnostics. Do not attach private backups or macros.}
