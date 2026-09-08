@@ -26,11 +26,30 @@ jobs:
           cache: true
           cache-dependency-path: '**/packages.lock.json'
       - name: Restore locked dependencies
-        # The lock files contain the complete RID graph. Passing a single
-        # runtime here makes NuGet treat the lock as changed on Unix runners.
         run: dotnet restore --locked-mode
       - name: Test (no hardware)
         run: dotnet test --no-restore -c Release --logger trx --results-directory artifacts/test-results
+      - name: Report test failures
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts/test-results -Filter *.trx -ErrorAction SilentlyContinue | ForEach-Object {
+            [xml]$results = Get-Content $_.FullName -Raw
+            foreach ($test in $results.TestRun.Results.UnitTestResult) {
+              if ($test.outcome -eq 'Failed') {
+                $message = "$($test.testName): $($test.Output.ErrorInfo.Message) $($test.Output.ErrorInfo.StackTrace)"
+                $message = $message.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+                Write-Output "::error::$message"
+              }
+            }
+          }
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.rid }}
+          path: artifacts/test-results/*.trx
+          if-no-files-found: warn
       - name: Publish self-contained package
         shell: pwsh
         run: ./tools/publish.ps1 -Runtime ${{ matrix.rid }} -SkipTests
