@@ -232,7 +232,14 @@ public sealed class Workspace : Observable
     }
     public MouseProfile Draft()
     {
-        return new(Rate, Stages.Select(s => s.Enabled ? checked((int)(s.Value ?? throw new InvalidDataException("DPI is empty."))) : 0).ToArray(), DefaultIndex, ShiftSelection == 0 ? 255 : ShiftSelection - 1, Buttons.Select(b => b.Selected.Bytes).ToArray());
+        var enabled = Stages.Select((stage, index) => (stage, index)).Where(x => x.stage.Enabled).ToArray();
+        var values = enabled.Select(x => checked((int)(x.stage.Value ?? throw new InvalidDataException("DPI is empty.")))).ToList();
+        while (values.Count < 5) values.Add(0);
+        int MapIndex(int selected) => selected >= 0 && selected < Stages.Count && Stages[selected].Enabled
+            ? enabled.TakeWhile(x => x.index != selected).Count() : selected;
+        int defaultIndex = MapIndex(DefaultIndex);
+        int shiftIndex = ShiftSelection == 0 ? 255 : MapIndex(ShiftSelection - 1);
+        return new(Rate, values.ToArray(), defaultIndex, shiftIndex, Buttons.Select(b => b.Selected.Bytes).ToArray());
     }
     public void ValidateDraft()
     {
@@ -271,7 +278,8 @@ public sealed class Workspace : Observable
         {
             CurrentDpi = await session!.Preview(baseline, dpi); Status = L["CurrentDpiApplied"] + $" ({timer.Elapsed.TotalMilliseconds:F0} ms)";
         }
-        catch { connectionChanged = true; NotifyState(); throw; }
+        catch (Exception ex) when (ex is DeviceException or IOException or TimeoutException)
+        { connectionChanged = true; NotifyState(); throw; }
     }
     public async Task Export(string path, CancellationToken cancel)
     {

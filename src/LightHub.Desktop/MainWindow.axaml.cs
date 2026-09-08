@@ -16,7 +16,6 @@ public partial class MainWindow : Window
     private bool syncing, allowClose;
     private readonly DeviceWatcher? watcher;
     private readonly Avalonia.Threading.DispatcherTimer topologyTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
-    private readonly Avalonia.Threading.DispatcherTimer runtimeTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     public MainWindow() : this(false) { }
     public MainWindow(bool demo, TransactionStore? store = null)
     {
@@ -25,8 +24,6 @@ public partial class MainWindow : Window
         Opened += (_, _) => Initialization = Safe(() => Refresh());
         if (!demo)
         {
-            runtimeTimer.Tick += async (_, _) => { if (IsActive && WindowState != WindowState.Minimized) await Model.RefreshRuntime(); };
-            runtimeTimer.Start();
             watcher = new();
             watcher.Changed += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => { topologyTimer.Stop(); topologyTimer.Start(); });
             topologyTimer.Tick += async (_, _) =>
@@ -36,7 +33,7 @@ public partial class MainWindow : Window
                 if (Model.Endpoint is { } selected && !selected.Channels.All(c => HidSharp.DeviceList.Local.GetHidDevices(0x046d).Any(d => d.DevicePath == c.DevicePath))) Model.InvalidateConnection();
             };
         }
-        Closed += (_, _) => { runtimeTimer.Stop(); topologyTimer.Stop(); watcher?.Dispose(); Model.DisposeSession(); };
+        Closed += (_, _) => { topologyTimer.Stop(); watcher?.Dispose(); Model.DisposeSession(); };
         Closing += async (_, e) =>
         {
             if (allowClose) return;

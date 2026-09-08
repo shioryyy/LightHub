@@ -62,7 +62,7 @@ formats must get a separate codec and tests. Old WinForms backups are explicitly
 No network clients, services, autostart entries, global input hooks or auto-update loop.
 Device handles are opened for an operation and closed afterward, except an active
 temporary DPI preview holds a short-lived session and receiver lease. Connected idle UI
-does not poll HID. HID topology notifications are debounced on the UI thread. When idle
+does not poll HID; runtime values refresh after explicit user actions. HID topology notifications are debounced on the UI thread. When idle
 the selected endpoint disappears, changes are retained and writes are blocked until
 an explicit refresh. Unrelated HID additions do not discard drafts or invalidate it.
 Wireless sleep behind an unchanged receiver may require manual refresh. Actual
