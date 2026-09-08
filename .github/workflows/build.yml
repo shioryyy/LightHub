@@ -26,6 +26,8 @@ jobs:
           cache: true
           cache-dependency-path: '**/packages.lock.json'
       - name: Restore locked dependencies
+        # The lock files contain the complete RID graph. Passing a single
+        # runtime here makes NuGet treat the lock as changed on Unix runners.
         run: dotnet restore --locked-mode
       - name: Test (no hardware)
         run: dotnet test --no-restore -c Release --logger trx --results-directory artifacts/test-results
@@ -39,3 +41,4 @@ jobs:
             dist/*.zip
             dist/*.tar.gz
             artifacts/test-results/*.trx
+          if-no-files-found: error
