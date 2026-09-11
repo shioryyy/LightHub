@@ -10,13 +10,16 @@ using LightHub.Application;
 using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(LightHub.Tests.TestAppBuilder))]
+// Skia's shared render loop must keep a single owning dispatcher. Each test owns
+// its windows and data directory; no UI theme/global state is changed by tests.
+[assembly: AvaloniaTestIsolation(AvaloniaTestIsolationLevel.PerAssembly)]
 namespace LightHub.Tests;
 
 public static class TestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 }
-public sealed class UiTests
+public sealed partial class UiTests
 {
     [AvaloniaFact]
     public async Task DemoLoadsAndCannotWrite()

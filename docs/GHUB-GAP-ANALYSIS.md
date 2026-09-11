@@ -1,6 +1,6 @@
 # G HUB comparison and implementation priorities
 
-The [design baseline](design/README.md), finalized 2026-09-08, decides which gaps belong
+The [design baseline](design/README.md), revised to 1.1 on 2026-09-11, decides which gaps belong
 in LightHub and their delivery gates. [Product strategy](PRODUCT-STRATEGY.md) preserves
 the research behind those decisions. This comparison is a historical inventory, not
 a requirement to copy every G HUB workflow or the authoritative release roadmap.
@@ -8,6 +8,10 @@ a requirement to copy every G HUB workflow or the authoritative release roadmap.
 Review date: 2026-09-07. This compares the current source, including unreleased
 iterations, with G HUB workflows. G HUB capabilities vary by device and firmware;
 software-mode features are not automatically available in a mouse's onboard memory.
+
+The macro sections were updated against local code on 2026-09-12. This is not a new
+review of official pages or community posts; other historical inventory entries
+must not be read as current implementation evidence.
 
 ## Current position
 
@@ -20,7 +24,7 @@ complete backups and verified recovery of supported profile sectors.
 | --- | --- | --- | --- |
 | DPI and report rate | Capability-based stages, default/shift stage and 125-1000 Hz where reported; temporary DPI tested on Windows GPW1 | More direct stage interaction; extended DPI/high-rate features for newer devices | P1 |
 | Physical button assignment | Mouse/key/media actions, one modifier combination; GPW1 physical diagram | Better action search/categories, shortcut capture, more model diagrams, physical input verification | P1 |
-| Macro editor | Not implemented; existing unknown bytes preserved | Named macros, step list, press/release, delays, validation, import/export, button assignment and execution semantics | P1, staged |
+| Macro editor | Local named library, manual down/up/delay steps, validation, import/export, drafts, recycle/recover | Button assignment, onboard codec/recovery and software execution still unavailable | P1, staged |
 | G-Shift | DPI Shift exists, but this is not a G-Shift mapping layer | Second binding table, hold activation, clear layer UI, model-specific preservation/recovery | P1 |
 | Profile library | Edit reported onboard slots and activate a slot | Named local presets, duplicate/reset, import/export, compare, device-compatible application; onboard rename/disable only with validated encoding | P1 |
 | Per-app profiles | Not implemented | Process/focus monitoring, default fallback and conflict handling; requires an optional resident component | P2, product decision |
@@ -52,7 +56,9 @@ references, not evidence that every operation is safe on our GPW1 firmware.
 
 Current LightHub limitations are concrete:
 
-- No macro data model, event editor, library, recording or execution engine.
+- LocalMacro/MacroEvent, semantic validation, MacroLibrary storage and a manual
+  editor now exist. There is no recording or execution engine; local files are not
+  device bindings. See the [batch report](validation/macros-20260912.md).
 - `TransactionEngine.EnsureEditScope` rejects macro-sector changes.
 - `TransactionEngine.Restore` refuses differing non-profile sectors.
 - Macro references, shared ownership, allocation, sector overflow and interrupted
@@ -60,7 +66,7 @@ Current LightHub limitations are concrete:
   a broken binding. Shared macro sectors must not damage other profiles.
 - A keyboard combination such as Ctrl+C encodes one chord. It is not a timed macro.
 
-Implementation order:
+Onboard execution gates (local editing can proceed independently):
 
 1. Read-only macro discovery: parse existing pointers/steps with strict bounds,
    preserve unknown opcodes and display unsupported formats without rewriting them.
@@ -80,9 +86,12 @@ Implementation order:
 LightHub would execute events while running. Hold/toggle repeats, app launching,
 per-app actions and scripting can depend on a resident process, per-platform input
 injection and event capture. Stop/cancel and releasing held keys on error are mandatory.
-This requires a product/architecture decision because the current contract promises
-onboard operation without a background service or global input hooks. Do not silently
-add that dependency while implementing a macro editor.
+Design baseline 1.1 now plans an opt-in user-process runner with fixed software
+profiles. Application switching is separately opt-in and is not a prerequisite.
+The editor requires neither global input capture nor a running execution backend.
+The runner is not implemented: GPW1/Windows trigger routing, original-button behavior,
+permissions and cancellation must first pass the [implementation gates](design/06-macros-and-runtime.md).
+Onboard functions continue to work independently of a resident process.
 
 ## Backup changes in this iteration
 
@@ -113,8 +122,9 @@ add that dependency while implementing a macro editor.
    use the GPW1 as the reference device and keep all other models evidence-gated.
 3. Implement the narrow onboard macro driver and its recovery before exposing Apply.
 4. Add G-Shift and simple GPW lighting as independent capabilities.
-5. Decide whether to introduce an optional resident software mode for per-app switching
-   and software macros; continue the hardware validation and distribution work.
+5. Validate an optional fixed-profile software macro runner independently of the
+   onboard driver; application switching comes later. The authoritative next batches
+   are E1/E2 and T0 in design baseline 1.1; continue hardware and distribution validation.
 
 ## References checked
 

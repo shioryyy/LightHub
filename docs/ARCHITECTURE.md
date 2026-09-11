@@ -59,7 +59,14 @@ formats must get a separate codec and tests. Old WinForms backups are explicitly
 
 ## Runtime behavior
 
-No network clients, services, autostart entries, global input hooks or auto-update loop.
+The current implementation has no network clients, services, autostart entries,
+global input hooks or auto-update loop. This describes the current release, not a
+permanent ban on optional software features. The [target macro/runtime contract](design/06-macros-and-runtime.md)
+separates offline editing, onboard execution, an opt-in user-process runner and
+independently opt-in application switching. The offline editor and MacroLibrary now
+exist; no execution runtime or application switching is enabled. MacroLibrary uses
+a process lease, file revisions, strict bounded schemas and separate draft/recycle
+directories. MacroEditorViewModel has no device or OS input dependencies.
 Device handles are opened for an operation and closed afterward, except an active
 temporary DPI preview holds a short-lived session and receiver lease. Connected idle UI
 does not poll HID; runtime values refresh after explicit user actions. HID topology notifications are debounced on the UI thread. When idle

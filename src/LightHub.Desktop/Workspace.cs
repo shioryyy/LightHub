@@ -14,6 +14,7 @@ public sealed class Workspace : Observable
     public bool Demo { get; }
     public TransactionStore Store { get; }
     public LocalAssets Assets { get; }
+    public MacroEditorViewModel Macros { get; }
     private DeviceSession? session;
     private bool refreshingRuntime;
     private bool runtimeStale;
@@ -101,6 +102,7 @@ public sealed class Workspace : Observable
     public Workspace(bool demo, TransactionStore? store = null)
     {
         Demo = demo; Store = store ?? new(demo ? Path.Combine(Path.GetTempPath(), "LightHub-demo", Guid.NewGuid().ToString("N")) : null); Assets = new(Store.Root); Status = L["Ready"]; PresetName = L["NewPreset"];
+        Macros = new(new MacroLibrary(Store.Root), L);
         draftTimer.Tick += async (_, _) =>
         {
             draftTimer.Stop(); if (!dirty || Demo) return;
@@ -121,6 +123,8 @@ public sealed class Workspace : Observable
         bool wasDirty = dirty;
         loading = true;
         L = new(chinese); foreach (string name in new[] { nameof(L), nameof(StageNames), nameof(ShiftNames), nameof(CompatibilityText), nameof(SupportText), nameof(DeviceName) }) Changed(name);
+        Macros.SetLanguage(L);
+        if (Demo) { Status = L["Demo"]; DiscoverySummary = L["Demo"]; }
         if (Snapshot is not null)
         {
             FillProfiles(); LoadProfile(Sector); if (preservedDraft is not null) SetDraft(preservedDraft, wasDirty);

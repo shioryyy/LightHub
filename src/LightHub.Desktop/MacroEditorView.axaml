@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="LightHub.Desktop.MacroEditorView">
+  <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10" Margin="0,14,0,0">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+      <StackPanel Spacing="4"><TextBlock Text="{Binding EditorState}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Status}" Classes="muted" TextWrapping="Wrap" FontSize="11"/></StackPanel>
+      <Button Grid.Column="1" Content="{Binding L[MacroNew]}" Name="NewMacro" Click="NewClicked" IsEnabled="{Binding Idle}" VerticalAlignment="Top"/>
+    </Grid>
+    <Grid Grid.Row="1" ColumnDefinitions="174,*" ColumnSpacing="14" IsEnabled="{Binding Idle}">
+      <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="6">
+        <TextBlock Text="{Binding L[MacroLibrary]}" Classes="muted"/>
+        <ListBox Grid.Row="1" Name="MacroList" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected, Mode=OneWay}" SelectionChanged="SelectionChanged" AutomationProperties.Name="{Binding L[MacroLibrary]}">
+          <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextWrapping="Wrap" Margin="0,5"/></DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel Grid.Row="2" Spacing="6">
+          <Button Content="{Binding L[MacroImport]}" Click="ImportClicked" HorizontalAlignment="Stretch"/>
+          <Button Content="{Binding L[MacroExport]}" Click="ExportClicked" IsEnabled="{Binding CanExport}" HorizontalAlignment="Stretch"/>
+          <WrapPanel><Button Content="{Binding L[Trash]}" Click="TrashClicked" Margin="0,0,6,0"/><Button Content="↻" Click="RefreshClicked" ToolTip.Tip="{Binding L[MacroLibrary]}" AutomationProperties.Name="{Binding L[MacroLibrary]}"/></WrapPanel>
+        </StackPanel>
+        <ScrollViewer Grid.Row="3" MaxHeight="80"><TextBlock Text="{Binding FilesWarning}" TextWrapping="Wrap" Foreground="#9B4D13" FontSize="11"/></ScrollViewer>
+      </Grid>
+      <ScrollViewer Grid.Column="1" Name="MacroEditorScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="8" IsEnabled="{Binding HasEditor}">
+          <TextBlock Text="{Binding L[MacroName]}"/>
+          <TextBox Name="MacroName" Text="{Binding Name, Mode=TwoWay}" MaxLength="120" AutomationProperties.Name="{Binding L[MacroName]}"/>
+          <TextBlock Text="{Binding Summary}" FontSize="11" Classes="muted" TextWrapping="Wrap"/>
+          <WrapPanel><Button Content="{Binding L[MacroDown]}" Click="AddDownClicked" Name="AddMacroDown" IsEnabled="{Binding CanAdd}" Margin="0,0,6,4"/><Button Content="{Binding L[MacroUp]}" Click="AddUpClicked" Name="AddMacroUp" IsEnabled="{Binding CanAdd}" Margin="0,0,6,4"/><Button Content="{Binding L[MacroDelay]}" Click="AddDelayClicked" IsEnabled="{Binding CanAdd}" Margin="0,0,0,4"/></WrapPanel>
+          <ListBox Name="MacroSteps" ItemsSource="{Binding Steps}" SelectedItem="{Binding SelectedStep, Mode=TwoWay}" Height="160" AutomationProperties.Name="{Binding L[MacroSteps]}">
+            <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" Margin="0,3"/></DataTemplate></ListBox.ItemTemplate>
+          </ListBox>
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsEnabled="{Binding CanChangeStep}">
+            <StackPanel Spacing="4"><TextBlock Text="{Binding L[MacroKind]}"/><ComboBox ItemsSource="{Binding Kinds}" SelectedIndex="{Binding SelectedStep.Kind, Mode=TwoWay}" AutomationProperties.Name="{Binding L[MacroKind]}"/></StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4" IsVisible="{Binding SelectedStep.IsKey}"><TextBlock Text="{Binding L[MacroKey]}"/><ComboBox ItemsSource="{Binding Keys}" SelectedItem="{Binding SelectedStep.Key, Mode=TwoWay}" AutomationProperties.Name="{Binding L[MacroKey]}"/></StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4" IsVisible="{Binding SelectedStep.IsDelay}"><TextBlock Text="{Binding L[MacroDelayMs]}"/><NumericUpDown Value="{Binding SelectedStep.Delay, Mode=TwoWay}" Minimum="1" Maximum="10000" Increment="10" AutomationProperties.Name="{Binding L[MacroDelayMs]}"/></StackPanel>
+          </Grid>
+          <WrapPanel><Button Content="↑" Click="MoveUpClicked" IsEnabled="{Binding CanMoveUp}" ToolTip.Tip="{Binding L[MacroMoveUp]}" AutomationProperties.Name="{Binding L[MacroMoveUp]}" Margin="0,0,6,4"/><Button Content="↓" Click="MoveDownClicked" IsEnabled="{Binding CanMoveDown}" ToolTip.Tip="{Binding L[MacroMoveDown]}" AutomationProperties.Name="{Binding L[MacroMoveDown]}" Margin="0,0,6,4"/><Button Content="{Binding L[MacroCopyStep]}" Click="CopyStepClicked" IsEnabled="{Binding CanCopyStep}" Margin="0,0,6,4"/><Button Content="{Binding L[MacroRemoveStep]}" Click="RemoveStepClicked" IsEnabled="{Binding CanChangeStep}" Margin="0,0,0,4"/></WrapPanel>
+          <TextBlock Text="{Binding Validation}" Foreground="#9B4D13" TextWrapping="Wrap" Name="MacroValidation"/>
+          <WrapPanel><Button Content="{Binding L[MacroDuplicate]}" Click="DuplicateClicked" IsEnabled="{Binding CanDuplicate}" Margin="0,0,6,4"/><Button Content="{Binding L[MacroRecycle]}" Click="RecycleClicked" IsEnabled="{Binding CanRecycle}" Margin="0,0,0,4"/></WrapPanel>
+          <Expander Header="{Binding L[MacroCapability]}" HorizontalAlignment="Stretch" IsExpanded="True"><StackPanel Spacing="8"><TextBlock Text="{Binding CapabilityText}" TextWrapping="Wrap" FontSize="11"/><Button Content="{Binding L[MacroBind]}" IsEnabled="{Binding CanBind}" Name="BindMacro"/></StackPanel></Expander>
+          <TextBlock Text="{Binding ErrorDetails}" TextWrapping="Wrap" Foreground="#9B4D13" FontSize="11"/>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,4">
+      <Button Content="{Binding L[MacroDiscard]}" Click="DiscardClicked" IsEnabled="{Binding Dirty}" HorizontalAlignment="Left"/>
+      <Button Grid.Column="1" Content="{Binding L[MacroSaveDraft]}" Click="SaveDraftClicked" IsEnabled="{Binding CanSaveDraft}"/>
+      <Button Grid.Column="2" Content="{Binding L[MacroSave]}" Click="SaveClicked" IsEnabled="{Binding CanSave}" Classes="primary" Name="SaveMacro"/>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -1,3 +1,4 @@
+param([string]$OutputRoot)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 [xml]$properties = Get-Content (Join-Path $root 'Directory.Build.props') -Raw
@@ -6,15 +7,16 @@ $stage = Join-Path $root ('artifacts/source-' + [Guid]::NewGuid().ToString('N') 
 New-Item -ItemType Directory -Force $stage | Out-Null
 $directories = @('src','tests','tools','docs','packaging','third-party','.github')
 foreach ($directory in $directories) {
-    Get-ChildItem (Join-Path $root $directory) -Recurse -File -Force | Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' } | ForEach-Object {
+    Get-ChildItem (Join-Path $root $directory) -Recurse -File -Force | Where-Object { $_.FullName.Substring($root.Length+1) -notmatch '(^|[\\/])(bin|obj|artifacts)[\\/]' -and $_.Extension -notin @('.lhbackup','.lhmacro','.lhdraft','.lhpreset','.log') } | ForEach-Object {
         $relative = $_.FullName.Substring($root.Length+1)
         $target = Join-Path $stage $relative
         New-Item -ItemType Directory -Force (Split-Path $target -Parent) | Out-Null
         Copy-Item $_.FullName $target
     }
 }
-Get-ChildItem $root -File -Force | Where-Object { $_.Name -notmatch '\.(zip|lhbackup|log)$' } | ForEach-Object { Copy-Item $_.FullName $stage }
-$zip = Join-Path $root "dist/LightHub-$version-source.zip"
+Get-ChildItem $root -File -Force | Where-Object { $_.Name -notmatch '\.(zip|lhbackup|lhmacro|lhdraft|lhpreset|log)$' } | ForEach-Object { Copy-Item $_.FullName $stage }
+$outputDirectory = if ($OutputRoot) { [IO.Path]::GetFullPath($OutputRoot, $root) } else { Join-Path $root 'dist' }
+$zip = Join-Path $outputDirectory "LightHub-$version-source.zip"
 New-Item -ItemType Directory -Force (Split-Path $zip -Parent) | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 Add-Type -AssemblyName System.IO.Compression

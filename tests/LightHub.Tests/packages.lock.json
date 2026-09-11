@@ -383,7 +383,7 @@
       "lighthub.application": {
         "type": "Project",
         "dependencies": {
-          "LightHub.Core": "[0.2.0-alpha.1, )"
+          "LightHub.Core": "[0.3.0-alpha.2, )"
         }
       },
       "lighthub.core": {
@@ -395,14 +395,14 @@
           "Avalonia.Desktop": "[12.1.2, )",
           "Avalonia.Fonts.Inter": "[12.1.2, )",
           "Avalonia.Themes.Fluent": "[12.1.2, )",
-          "LightHub.Hid": "[0.2.0-alpha.1, )"
+          "LightHub.Hid": "[0.3.0-alpha.2, )"
         }
       },
       "lighthub.hid": {
         "type": "Project",
         "dependencies": {
           "HidSharp": "[2.6.4, )",
-          "LightHub.Application": "[0.2.0-alpha.1, )"
+          "LightHub.Application": "[0.3.0-alpha.2, )"
         }
       }
     },

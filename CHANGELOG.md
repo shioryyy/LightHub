@@ -2,9 +2,16 @@
 
 ## Unreleased
 
+- Add an offline macro library and bilingual manual editor: bounded keyboard steps,
+  reordering, duplication, import/export, retained invalid drafts and recoverable deletion.
+- Protect macro saves with revision checks and a library lease; preserve unknown
+  formats and isolate corrupt files. Local saves never write to the device or execute input.
+- Add read-only `trigger-inspect` CLI diagnostics; no diversion, remapping or input capture.
+- Keep onboard macro writing, binding and the software runner disabled pending evidence.
+- Exclude personal macro/draft files from source archives and build manifests.
+- Use a shared headless test dispatcher for Skia's render loop; retain isolated test data/windows.
 - Fix nullable battery-voltage formatting; unavailable/zero voltage is shown as unknown.
-- Refresh foreground runtime DPI/stage once per second and battery every 30 seconds;
-  retain draft/conflict baseline and never write or read complete memory during polling.
+- Runtime values refresh after explicit actions; the idle UI does not poll HID.
 
 ### 0.3.0-alpha.1 engineering preview
 

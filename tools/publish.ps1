@@ -1,6 +1,7 @@
 param(
     [ValidateSet('win-x64','win-arm64','linux-x64','linux-arm64','osx-x64','osx-arm64')][string]$Runtime = 'win-x64',
     [string]$Dotnet = 'dotnet',
+    [string]$OutputRoot,
     [switch]$SkipTests
 )
 $ErrorActionPreference = 'Stop'
@@ -15,7 +16,8 @@ try {
         & $Dotnet test --no-restore -c Release
         if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
     }
-    $stage = Join-Path $root "dist/LightHub-$version-$Runtime"
+    $outputDirectory = if ($OutputRoot) { [IO.Path]::GetFullPath($OutputRoot, $root) } else { Join-Path $root 'dist' }
+    $stage = Join-Path $outputDirectory "LightHub-$version-$Runtime"
     if (Test-Path -LiteralPath $stage) { throw "Output already exists: $stage. Archive it explicitly before rebuilding." }
     & $Dotnet publish src/LightHub.Desktop -c Release -r $Runtime --self-contained true -p:RestoreLockedMode=true -o $stage
     if ($LASTEXITCODE -ne 0) { throw 'Desktop publish failed' }
@@ -26,8 +28,8 @@ try {
     Copy-Item (Join-Path $root 'packaging') $stage -Recurse -Force
     & (Join-Path $PSScriptRoot 'dependency-inventory.ps1') -OutputDirectory (Join-Path $stage 'licenses')
     Copy-Item (Join-Path $root 'third-party/*') (Join-Path $stage 'licenses') -Recurse -Force
-    $sourceEntries = Get-ChildItem (Join-Path $root 'src'),(Join-Path $root 'tests'),(Join-Path $root 'tools'),(Join-Path $root 'docs'),(Join-Path $root 'packaging'),(Join-Path $root 'third-party'),(Join-Path $root '.github') -Recurse -File -Force | Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' }
-    $sourceEntries += Get-ChildItem $root -File -Force
+    $sourceEntries = Get-ChildItem (Join-Path $root 'src'),(Join-Path $root 'tests'),(Join-Path $root 'tools'),(Join-Path $root 'docs'),(Join-Path $root 'packaging'),(Join-Path $root 'third-party'),(Join-Path $root '.github') -Recurse -File -Force | Where-Object { $_.FullName.Substring($root.Length+1) -notmatch '(^|[\\/])(bin|obj|artifacts)[\\/]' -and $_.Extension -notin @('.lhbackup','.lhmacro','.lhdraft','.lhpreset','.log') }
+    $sourceEntries += Get-ChildItem $root -File -Force | Where-Object { $_.Extension -notin @('.lhbackup','.lhmacro','.lhdraft','.lhpreset','.log','.zip') }
     $sourceManifest = $sourceEntries | Sort-Object FullName | ForEach-Object { [ordered]@{ path=$_.FullName.Substring($root.Length+1).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant() } }
     [IO.File]::WriteAllText((Join-Path $stage 'SOURCE-MANIFEST.json'),(ConvertTo-Json -InputObject @($sourceManifest) -Depth 4),[Text.UTF8Encoding]::new($false))
     $metadata = [ordered]@{ version=$version; runtime=$Runtime; quality='engineering-preview'; signed=$false; builtUtc=[DateTimeOffset]::UtcNow.ToString('O'); sourceManifestSha256=(Get-FileHash (Join-Path $stage 'SOURCE-MANIFEST.json')).Hash.ToLowerInvariant() }

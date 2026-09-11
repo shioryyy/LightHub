@@ -10,7 +10,7 @@
       "lighthub.application": {
         "type": "Project",
         "dependencies": {
-          "LightHub.Core": "[0.2.0-alpha.1, )"
+          "LightHub.Core": "[0.3.0-alpha.2, )"
         }
       },
       "lighthub.core": {
@@ -20,7 +20,7 @@
         "type": "Project",
         "dependencies": {
           "HidSharp": "[2.6.4, )",
-          "LightHub.Application": "[0.2.0-alpha.1, )"
+          "LightHub.Application": "[0.3.0-alpha.2, )"
         }
       }
     },

@@ -21,7 +21,10 @@ public partial class MainWindow : Window
     {
         Model = new(demo, store); AvaloniaXamlLoader.Load(this); DataContext = Model;
         syncing = true; this.FindControl<ComboBox>("Language")!.SelectedIndex = Model.L.Chinese ? 1 : 0; syncing = false;
-        Opened += (_, _) => Initialization = Safe(() => Refresh());
+        this.FindControl<MacroEditorView>("MacroEditor")!.DialogOwner = this;
+        this.FindControl<MacroEditorView>("MacroEditor")!.DataContext = Model.Macros;
+        this.FindControl<TabControl>("Tabs")!.SelectionChanged += TabChanged;
+        Opened += (_, _) => Initialization = Safe(async () => { await Model.Macros.RefreshAsync(); await Refresh(); });
         if (!demo)
         {
             watcher = new();
@@ -37,13 +40,21 @@ public partial class MainWindow : Window
         Closing += async (_, e) =>
         {
             if (allowClose) return;
-            if (Model.Busy) { e.Cancel = true; Model.Status = Model.L["Busy"]; return; }
-            if (Model.Dirty || Model.Previewing)
+            if (Model.Busy || Model.Macros.Busy) { e.Cancel = true; Model.Status = Model.L["Busy"]; return; }
+            if (Model.Dirty || Model.Previewing || Model.Macros.Dirty)
             {
                 e.Cancel = true;
-                await Safe(async () => { if (await Discard()) { allowClose = true; Close(); } });
+                await Safe(async () => { if (await this.FindControl<MacroEditorView>("MacroEditor")!.ResolveEditsAsync() && await Discard()) { allowClose = true; Close(); } });
             }
         };
+    }
+    private void TabChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.Source is not TabControl tabs || tabs.Name != "Tabs") return;
+        bool hardware = tabs.SelectedItem is not TabItem { Name: "MacrosTab" };
+        if (this.FindControl<Grid>("DeviceHeading") is { } heading) heading.IsVisible = hardware;
+        if (this.FindControl<Button>("HardwareUndo") is { } undo) undo.IsVisible = hardware;
+        if (this.FindControl<Button>("HardwareApply") is { } apply) apply.IsVisible = hardware;
     }
     private async Task Safe(Func<Task> action)
     {

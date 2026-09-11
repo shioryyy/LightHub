@@ -9,13 +9,20 @@ try
 {
     if (args.Length == 0 || args[0] is "--help" or "help")
     {
-        Console.WriteLine("LightHub CLI\n  list\n  inspect <endpoint-id>\n  backup <endpoint-id> <path>\n  restore <endpoint-id> <path> --yes\n  save <endpoint-id> <sector> <preset.lhpreset> --yes\n  activate <endpoint-id> <sector> --yes\n  smoke <endpoint-id> --write-inactive-and-restore\n  dpi-smoke <endpoint-id>\nIDs come from list. Operation permissions are independent. Backups contain device identity."); return 0;
+        Console.WriteLine("LightHub CLI\n  list\n  inspect <endpoint-id>\n  trigger-inspect <endpoint-id> (read only; no event capture)\n  backup <endpoint-id> <path>\n  restore <endpoint-id> <path> --yes\n  save <endpoint-id> <sector> <preset.lhpreset> --yes\n  activate <endpoint-id> <sector> --yes\n  smoke <endpoint-id> --write-inactive-and-restore\n  dpi-smoke <endpoint-id>\nIDs come from list. Operation permissions are independent. Backups contain device identity."); return 0;
     }
     var scan = HidDiscovery.Scan();
     foreach (var warning in scan.Warnings) Console.Error.WriteLine(warning);
     if (args[0] == "list") { Console.WriteLine(JsonSerializer.Serialize(scan.Devices.Select(d => new { d.Id, d.Name, productId = d.ProductId.ToString("X4"), d.Slot }), Json.Options)); return 0; }
     if (args.Length < 2) throw new ArgumentException("Endpoint ID required.");
     var endpoint = scan.Devices.SingleOrDefault(d => d.Id == args[1]) ?? throw new IOException("Endpoint not found. Run list again.");
+    if (args[0] == "trigger-inspect" && args.Length == 2)
+    {
+        using var lease = new DeviceLease(endpoint.PhysicalKey, store.Root);
+        using var transport = new HidTransport(endpoint.Channels, endpoint.Slot);
+        Console.WriteLine(JsonSerializer.Serialize(new { endpoint.Name, connectionProductId = endpoint.ProductId.ToString("X4"), endpoint.Slot, Inspection = TriggerInspector.Inspect(transport) }, Json.Options));
+        return 0;
+    }
     using var session = new DeviceSession(new HidDeviceAccess(endpoint, store.Root), store);
     if (args[0] == "restore" && args.Length == 4 && args[3] == "--yes") { await session.Restore(args[2], Console.WriteLine); Console.WriteLine("Restore verified."); return 0; }
     var read = await session.Read(); var snapshot = read.Snapshot;

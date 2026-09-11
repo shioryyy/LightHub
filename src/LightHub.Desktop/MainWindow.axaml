@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="LightHub.Desktop.MainWindow" Title="LightHub" Width="1120" Height="800" MinWidth="960" MinHeight="680" Background="#FFFFFF">
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:LightHub.Desktop" x:Class="LightHub.Desktop.MainWindow" Title="LightHub" Width="1120" Height="800" MinWidth="960" MinHeight="680" Background="#FFFFFF">
   <Grid RowDefinitions="64,*,64" ColumnDefinitions="228,*">
     <Border Grid.ColumnSpan="2" Background="#F4F6F7" BorderBrush="#DFE4E7" BorderThickness="0,0,0,1" Padding="22,12">
       <Grid ColumnDefinitions="*,Auto,Auto">
@@ -19,12 +19,12 @@
       </Grid>
     </Border>
     <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*" Margin="26,20,26,12">
-      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <Grid Name="DeviceHeading" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
         <StackPanel Spacing="7"><TextBlock Text="{Binding DeviceName}" FontSize="25" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding DeviceDetails}" Classes="muted" TextWrapping="Wrap"/><TextBlock Text="{Binding SupportText}" Foreground="#00795F" TextWrapping="Wrap"/></StackPanel>
         <Button Grid.Column="1" Content="{Binding L[Read]}" Click="ReadClicked" IsEnabled="{Binding CanRead}" VerticalAlignment="Top" Margin="14,0,0,0"/>
       </Grid>
       <TabControl Grid.Row="1" Name="Tabs">
-        <TabItem Header="{Binding L[Profile]}">
+        <TabItem Header="{Binding L[TabProfile]}" Width="138">
           <ScrollViewer Name="ProfileScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="18" Margin="0,18,8,20" IsEnabled="{Binding HasSnapshot}">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18"><ComboBox ItemsSource="{Binding Profiles}" Name="ProfileList" SelectionChanged="ProfileChanged" IsEnabled="{Binding Idle}"/><Button Grid.Column="1" Content="{Binding L[Activate]}" Click="ActivateClicked" IsEnabled="{Binding CanActivate}" ToolTip.Tip="{Binding ActivationReason}"/></Grid>
@@ -51,7 +51,7 @@
             </StackPanel>
           </ScrollViewer>
         </TabItem>
-        <TabItem Header="{Binding L[Buttons]}">
+        <TabItem Header="{Binding L[TabButtons]}" Width="86">
           <Grid RowDefinitions="Auto,*" Margin="0,18,0,12" IsEnabled="{Binding HasSnapshot}">
             <TextBlock Text="{Binding ButtonProfileLabel}" Classes="section" Margin="0,0,0,14"/>
             <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="12">
@@ -81,7 +81,7 @@
             </Grid>
           </Grid>
         </TabItem>
-        <TabItem Header="{Binding L[Backups]}">
+        <TabItem Header="{Binding L[TabBackups]}" Width="92">
           <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,20,0,0">
             <WrapPanel Orientation="Horizontal"><Button Content="{Binding L[Export]}" Click="ExportClicked" IsEnabled="{Binding CanRead}" Margin="0,0,12,12"/><Button Content="{Binding L[Restore]}" Click="RestoreClicked" IsEnabled="{Binding CanRead}" Margin="0,0,12,12"/><Button Content="{Binding L[Diagnostics]}" Click="DiagnosticsClicked" Margin="0,0,0,12"/></WrapPanel>
             <WrapPanel Grid.Row="1">
@@ -101,10 +101,10 @@
             <Expander Grid.Row="4" Header="{Binding L[DiagnosticDetails]}" HorizontalAlignment="Stretch" Margin="0,8,0,0"><TextBox Text="{Binding DiagnosticText}" IsReadOnly="True" AcceptsReturn="True" Height="100" TextWrapping="Wrap"/></Expander>
           </Grid>
         </TabItem>
-        <TabItem Header="{Binding L[Support]}">
+        <TabItem Header="{Binding L[TabSupport]}" Width="132">
           <ScrollViewer><StackPanel Spacing="14" Margin="0,20,0,12"><TextBlock Text="{Binding CompatibilityText}" TextWrapping="Wrap"/><ItemsControl ItemsSource="{Binding Catalog}"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="#DFE4E7" BorderThickness="0,0,0,1" Padding="0,14"><StackPanel Spacing="6"><TextBlock Text="{Binding Name}" FontWeight="SemiBold"/><TextBlock Text="{Binding Evidence}" TextWrapping="Wrap" Classes="muted"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Text="{Binding RecoveryText}" TextWrapping="Wrap" Foreground="#9B4D13"/></StackPanel></ScrollViewer>
         </TabItem>
-        <TabItem Header="{Binding L[Presets]}">
+        <TabItem Header="{Binding L[Presets]}" Width="96">
           <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="0,18,0,12" RowSpacing="12" IsEnabled="{Binding Idle}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"><TextBox Text="{Binding PresetName}" MaxLength="120" PlaceholderText="{Binding L[PresetName]}"/><Button Grid.Column="1" Content="{Binding L[SavePreset]}" Click="SavePresetClicked" IsEnabled="{Binding CanEdit}"/></Grid>
             <WrapPanel Grid.Row="1"><Button Content="{Binding L[ImportPreset]}" Click="ImportPresetClicked" Margin="0,0,8,8"/><Button Content="{Binding L[ExportPreset]}" Click="ExportPresetClicked" Margin="0,0,8,8"/><Button Content="{Binding L[RecoverDraft]}" Click="RecoverDraftClicked" IsEnabled="{Binding CanEdit}" Margin="0,0,8,8"/></WrapPanel>
@@ -112,14 +112,15 @@
             <WrapPanel Grid.Row="3"><Button Content="{Binding L[LoadPreset]}" Click="LoadPresetClicked" IsEnabled="{Binding CanEdit}" Margin="0,0,8,0"/><Button Content="{Binding L[DeletePreset]}" Click="DeletePresetClicked" Margin="0,0,8,0"/><Button Content="{Binding L[RenamePreset]}" Click="RenamePresetClicked"/></WrapPanel>
           </Grid>
         </TabItem>
+        <TabItem Header="{Binding L[Macros]}" Name="MacrosTab" Width="82"><local:MacroEditorView Name="MacroEditor"/></TabItem>
       </TabControl>
     </Grid>
     <Border Grid.Row="2" Grid.ColumnSpan="2" BorderBrush="#DFE4E7" BorderThickness="0,1,0,0" Padding="22,12" Background="#F8FAFA">
       <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
         <StackPanel Spacing="4" VerticalAlignment="Center"><TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis"/><ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}" Height="3"/><TextBlock Text="{Binding DirtyText}" FontSize="11" Classes="muted"/></StackPanel>
         <Button Grid.Column="1" Content="{Binding L[Cancel]}" Click="CancelClicked" IsVisible="{Binding CanCancel}"/>
-        <Button Grid.Column="2" Content="{Binding L[Undo]}" Click="UndoClicked" IsEnabled="{Binding CanUndo}"/>
-        <Button Grid.Column="3" Content="{Binding L[Apply]}" Classes="primary" Click="ApplyClicked" IsEnabled="{Binding CanWrite}"/>
+        <Button Grid.Column="2" Name="HardwareUndo" Content="{Binding L[Undo]}" Click="UndoClicked" IsEnabled="{Binding CanUndo}"/>
+        <Button Grid.Column="3" Name="HardwareApply" Content="{Binding L[Apply]}" Classes="primary" Click="ApplyClicked" IsEnabled="{Binding CanWrite}"/>
       </Grid>
     </Border>
   </Grid>

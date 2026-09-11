@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LightHub non-executable macro draft v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "macro", "baseRevision"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "baseRevision": { "type": ["string", "null"], "pattern": "^[0-9a-fA-F]{64}$" },
+    "macro": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "id", "name", "execution", "events"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "id": { "type": "string", "pattern": "^[0-9a-fA-F]{32}$" },
+        "name": { "type": "string", "maxLength": 120 },
+        "execution": { "const": "single" },
+        "events": { "type": "array", "maxItems": 256, "items": { "$ref": "macro-v1.schema.json#/properties/events/items" } }
+      }
+    }
+  },
+  "description": "Drafts may have blank names, empty steps, unbalanced keys or excessive total delay. They are not executable. Known bounded event shapes are still required. baseRevision is the hash of the saved macro this draft was edited from, or null for a new macro. A draft cannot be imported as an executable .lhmacro."
+}

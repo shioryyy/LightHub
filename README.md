@@ -1,7 +1,7 @@
 # LightHub
 
 The finalized [product and engineering design](docs/design/README.md) defines scope,
-technology, behavior, recovery and delivery gates. Design version 1.0 is not the app
+technology, behavior, recovery and delivery gates. Design version 1.1 is not the app
 version or a claim that planned capabilities are already implemented.
 
 The LightHub HID backend passed a Windows GPW1 inactive-profile write/restore test
@@ -12,7 +12,16 @@ An offline, open-source desktop configuration manager for Logitech HID++ gaming 
 Built with .NET 10, Avalonia and HidSharp. No G HUB installation, background service,
 input hook, account or runtime network access required.
 
-**Engineering preview: 0.3.0-alpha.1.** See the [refactor acceptance report](docs/validation/refactor-20260908.md).
+The [design baseline 1.1](docs/design/README.md) retains macro editing as a core
+goal and plans an optional software macro runner. Fixed software profiles will not
+require application switching; both runtime and automatic switching are opt-in.
+The local macro editor is now implemented; onboard macro writing and the software
+runner remain unavailable. See the [macro guide](docs/MACROS.md) and
+[batch validation report](docs/validation/macros-20260912.md).
+
+**Development candidate: 0.3.0-alpha.2.** Release readiness is tracked in the
+[candidate checklist](docs/releases/0.3.0-alpha.2-checklist.md); the earlier
+[refactor acceptance report](docs/validation/refactor-20260908.md) remains historical evidence.
 This iteration passed GPW1 inactive-save/restore and runtime-DPI regression, but activation,
 physical input and lifecycle gates remain open. Cross-platform architecture does not mean all
 platform/device combinations have been validated. Read the support matrix below.
@@ -39,7 +48,8 @@ This repository is suitable for public development, not yet a stable universal r
 - Shared Application services for desktop and CLI; preview checks ownership before restoring DPI.
 
 For the remaining work beyond basic profiles, see the [G HUB gap analysis](docs/GHUB-GAP-ANALYSIS.md).
-Multi-step macros and G-Shift editing are not implemented; a keyboard chord is not a macro.
+Multi-step keyboard macros can be edited and saved locally. They cannot yet be
+bound to the device or executed. G-Shift editing remains unavailable.
 
 ## Compatibility
 
@@ -57,7 +67,7 @@ Public protocol/device sources and the next validation steps are recorded in
 
 Unknown models are not writable. No "force write" switch. Catalog entries are reviewed
 with protocol traces, sanitized fixtures and hardware reports; see [device support](docs/DEVICE-SUPPORT.md).
-RGB, G-Shift editing, macros, receiver pairing and firmware update are outside this version.
+RGB, G-Shift editing, macro execution, receiver pairing and firmware update are outside this version.
 Existing unknown/profile bytes are preserved. Restoring changed macro sectors is refused.
 
 ## Run

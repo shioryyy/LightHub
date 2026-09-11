@@ -8,8 +8,8 @@ public sealed record LocalPreset(int SchemaVersion, string Id, string Name, stri
 {
     public override string ToString() => Name;
 }
-public sealed record MacroEvent(string Kind, int Usage, int DelayMs);
-public sealed record LocalMacro(int SchemaVersion, string Id, string Name, string Execution, MacroEvent[] Events);
+
+
 
 public sealed class LocalAssets(string root)
 {
@@ -70,22 +70,7 @@ public sealed class LocalAssets(string root)
     public LocalPreset? LoadDraft() { string path = Path.Combine(root, "drafts", "last.lhpreset"); return File.Exists(path) ? Read(path) : null; }
     public static void ValidateMacro(LocalMacro macro)
     {
-        if (macro.SchemaVersion != 1 || !Guid.TryParseExact(macro.Id, "N", out _) || string.IsNullOrWhiteSpace(macro.Name) || macro.Name.Length > 120 || macro.Execution != "single" || macro.Events is null || macro.Events.Length is < 1 or > 256)
-            throw new InvalidDataException("Invalid or unsupported macro.");
-        var pressed = new HashSet<int>(); int delay = 0;
-        foreach (var e in macro.Events)
-        {
-            if (e is null) throw new InvalidDataException("Empty macro event.");
-            if (e.Kind == "delay") { if (e.Usage != 0 || e.DelayMs is < 1 or > 10000) throw new InvalidDataException("Invalid delay."); delay += e.DelayMs; }
-            else
-            {
-                if (e.Usage is not (>= 4 and <= 0x73 or >= 0xe0 and <= 0xe7) || e.DelayMs != 0) throw new InvalidDataException("Unsupported keyboard usage.");
-                if (e.Kind == "down") { if (!pressed.Add(e.Usage)) throw new InvalidDataException("Duplicate key down."); }
-                else if (e.Kind == "up") { if (!pressed.Remove(e.Usage)) throw new InvalidDataException("Unmatched key up."); }
-                else throw new InvalidDataException("Unknown macro event.");
-                if (pressed.Count(k => k < 0xe0) > 6) throw new InvalidDataException("Too many held keys.");
-            }
-        }
-        if (delay > 30000 || pressed.Count != 0) throw new InvalidDataException("Macro exceeds duration or leaves keys held.");
+        try { MacroValidator.Validate(macro); }
+        catch (MacroLibraryException ex) { throw new InvalidDataException(ex.Message, ex); }
     }
 }
