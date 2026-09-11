@@ -109,12 +109,6 @@ public sealed class CoreTests
         Assert.Equal(HidDiscovery.NormalizeWindowsPath(a), HidDiscovery.NormalizeWindowsPath(b));
         Assert.NotEqual(HidDiscovery.NormalizeWindowsPath(a), HidDiscovery.NormalizeWindowsPath(b.Replace("abc", "def")));
     }
-    [Fact]
-    public void DiagnosticExportOmitsIdentityAndRawMemory()
-    {
-        var model = new Workspace(true); model.LoadDemo(); var text = model.RedactedDiagnostics();
-        Assert.DoesNotContain(model.Snapshot!.Identity.UnitId, text); Assert.DoesNotContain("sectors", text); Assert.False(model.CanWrite);
-    }
 }
 
 public sealed class TransactionTests : IDisposable

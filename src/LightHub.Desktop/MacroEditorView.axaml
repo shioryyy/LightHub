@@ -42,7 +42,7 @@
     <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,4">
       <Button Content="{Binding L[MacroDiscard]}" Click="DiscardClicked" IsEnabled="{Binding Dirty}" HorizontalAlignment="Left"/>
       <Button Grid.Column="1" Content="{Binding L[MacroSaveDraft]}" Click="SaveDraftClicked" IsEnabled="{Binding CanSaveDraft}"/>
-      <Button Grid.Column="2" Content="{Binding L[MacroSave]}" Click="SaveClicked" IsEnabled="{Binding CanSave}" Classes="primary" Name="SaveMacro"/>
+      <Button Grid.Column="2" Content="{Binding L[MacroSave]}" Click="SaveClicked" IsEnabled="{Binding CanSave}" Classes="primary" Name="SaveMacro" MinWidth="100"/>
     </Grid>
   </Grid>
 </UserControl>

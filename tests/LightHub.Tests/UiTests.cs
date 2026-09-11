@@ -22,6 +22,13 @@ public static class TestAppBuilder
 public sealed partial class UiTests
 {
     [AvaloniaFact]
+    public void DiagnosticExportOmitsIdentityAndRawMemory()
+    {
+        var model = new Workspace(true); model.LoadDemo(); var text = model.RedactedDiagnostics();
+        Assert.DoesNotContain(model.Snapshot!.Identity.UnitId, text); Assert.DoesNotContain("sectors", text); Assert.False(model.CanWrite);
+        model.DisposeSession();
+    }
+    [AvaloniaFact]
     public async Task DemoLoadsAndCannotWrite()
     {
         var w = new MainWindow(true); w.Show(); await w.Initialization; Dispatcher.UIThread.RunJobs();

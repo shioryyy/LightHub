@@ -23,7 +23,10 @@ public sealed class MacroLibrary
     private readonly Action<string, string> write;
     public MacroLibrary(string root, IMacroReferences? references = null, Action<string, string>? write = null)
     {
-        this.root = Path.GetFullPath(root);
+        // System-owned parent aliases (notably /var -> /private/var on macOS)
+        // are legitimate. Canonicalize the chosen parent, but keep rejecting a
+        // redirected library root or any managed child path.
+        this.root = CanonicalParent(root);
         this.references = references;
         this.write = write ?? AtomicFile.Write;
     }
@@ -99,7 +102,7 @@ public sealed class MacroLibrary
     public void Export(LocalMacro macro, string destination)
     {
         MacroValidator.Validate(macro); macro = macro.Copy();
-        destination = Path.GetFullPath(destination); CheckPath(destination);
+        destination = CanonicalParent(destination); CheckPath(destination);
         string relative = Path.GetRelativePath(root, destination);
         // Exports may not bypass conflict/reference checks by targeting managed data.
         if (relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) && !Path.IsPathRooted(relative))
@@ -164,11 +167,31 @@ public sealed class MacroLibrary
     {
         if (revision is not null && (revision.Length != 64 || revision.Any(c => !char.IsAsciiHexDigit(c)))) throw new MacroLibraryException("Format");
     }
+    private static string CanonicalParent(string path)
+    {
+        string full = Path.GetFullPath(path);
+        string? parent = Path.GetDirectoryName(full);
+        return parent is null ? full : Path.Combine(CanonicalDirectory(parent), Path.GetFileName(full));
+    }
+    private static string CanonicalDirectory(string path)
+    {
+        string candidate = CanonicalParent(path);
+        var directory = new DirectoryInfo(candidate);
+        if (directory.Exists && directory.Attributes.HasFlag(FileAttributes.ReparsePoint))
+            return directory.ResolveLinkTarget(true)?.FullName ?? throw new MacroLibraryException("LinkedPath");
+        return candidate;
+    }
     private static void CheckPath(string path)
     {
         for (string? p = Path.GetFullPath(path); p is not null; p = Path.GetDirectoryName(p))
-            if ((File.Exists(p) || Directory.Exists(p)) && File.GetAttributes(p).HasFlag(FileAttributes.ReparsePoint))
-                throw new MacroLibraryException("LinkedPath");
+        {
+            try
+            {
+                if (File.GetAttributes(p).HasFlag(FileAttributes.ReparsePoint)) throw new MacroLibraryException("LinkedPath");
+            }
+            catch (FileNotFoundException) { }
+            catch (DirectoryNotFoundException) { }
+        }
     }
     private static void Expect(string path, string? revision)
     {
@@ -182,6 +205,7 @@ public sealed class MacroLibrary
 
     private static MacroEntry ReadEntry(string path, bool allowDraft = true, bool requireKey = true)
     {
+        path = CanonicalParent(path);
         CheckPath(path);
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         if (stream.Length > MaxFileBytes) throw new MacroLibraryException("FileSize");

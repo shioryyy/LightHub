@@ -12,6 +12,42 @@ public sealed class MacroTests : IDisposable
     internal static LocalMacro CopyMacro() => new(1, Guid.NewGuid().ToString("N"), "Copy", "single", [new("down", 0xe0, 0), new("down", 6, 0), new("up", 6, 0), new("up", 0xe0, 0)]);
     public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
 
+    private static void LinkDirectory(string link, string target)
+    {
+        try { Directory.CreateSymbolicLink(link, target); }
+        catch (UnauthorizedAccessException) when (OperatingSystem.IsWindows())
+        { Assert.Skip("Creating Windows symbolic links requires developer mode or the symlink privilege."); }
+        catch (IOException ex) when (OperatingSystem.IsWindows() && (ex.HResult & 0xffff) == 1314)
+        { Assert.Skip("Creating Windows symbolic links requires developer mode or the symlink privilege."); }
+    }
+
+    [Fact]
+    public void ParentAliasIsAllowedButCannotBypassManagedExportProtection()
+    {
+        Directory.CreateDirectory(root); string real = Path.Combine(root, "real"), alias = Path.Combine(root, "alias"); Directory.CreateDirectory(real);
+        LinkDirectory(alias, real);
+        try
+        {
+            var library = new MacroLibrary(Path.Combine(alias, "library")); var saved = library.Save(CopyMacro(), null);
+            Assert.True(File.Exists(Path.Combine(real, "library", "macros", saved.Key + ".lhmacro")));
+            Assert.Equal("ManagedExport", Assert.Throws<MacroLibraryException>(() => library.Export(saved.Macro, Path.Combine(real, "library", "macros", saved.Key + ".lhmacro"))).Code);
+        }
+        finally { Directory.Delete(alias); }
+    }
+
+    [Fact]
+    public void ManagedChildAliasStillCannotRedirectWrites()
+    {
+        Directory.CreateDirectory(root); string external = Path.Combine(root, "outside"), data = Path.Combine(root, "library");
+        Directory.CreateDirectory(external); Directory.CreateDirectory(data); string alias = Path.Combine(data, "macros"); LinkDirectory(alias, external);
+        try
+        {
+            Assert.Equal("LinkedPath", Assert.Throws<MacroLibraryException>(() => new MacroLibrary(data).Save(CopyMacro(), null)).Code);
+            Assert.Empty(Directory.EnumerateFiles(external));
+        }
+        finally { Directory.Delete(alias); }
+    }
+
     [Fact]
     public void LibraryRoundTripsAndExportsWithoutChangingSources()
     {
