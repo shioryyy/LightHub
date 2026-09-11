@@ -178,7 +178,12 @@ public sealed class MacroLibrary
         string candidate = CanonicalParent(path);
         var directory = new DirectoryInfo(candidate);
         if (directory.Exists && directory.Attributes.HasFlag(FileAttributes.ReparsePoint))
-            return directory.ResolveLinkTarget(true)?.FullName ?? throw new MacroLibraryException("LinkedPath");
+        {
+            var target = directory.ResolveLinkTarget(true) ?? throw new MacroLibraryException("LinkedPath");
+            // A link target may itself spell a system parent alias (/var/...);
+            // normalize those ancestors before comparing against managed paths.
+            return CanonicalDirectory(target.FullName);
+        }
         return candidate;
     }
     private static void CheckPath(string path)
