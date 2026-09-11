@@ -6,6 +6,8 @@ public enum FailureKind { Disconnected, Timeout, Unsupported, Protocol, InvalidD
 public sealed class DeviceException(FailureKind kind, string message, Exception? inner = null) : IOException(message, inner)
 {
     public FailureKind Kind { get; } = kind;
+    public byte? HidppErrorCode { get; init; }
+    public byte? HidppErrorReport { get; init; }
 }
 
 public interface IReportTransport : IDisposable
@@ -29,7 +31,8 @@ public static class Wire
         if (response.Length < 7 || response[0] is not (0x10 or 0x11) || (response[0] == 0x11 && response.Length < 20)) return null;
         if (response[1] != request[1]) return null;
         if (response[2] is 0xff or 0x8f && response[3] == request[2] && response[4] == request[3])
-            throw new DeviceException(FailureKind.Protocol, $"HID++ error 0x{response[5]:X2}, feature {request[2]}, function {request[3] >> 4}.");
+            throw new DeviceException(FailureKind.Protocol, $"HID++ error 0x{response[5]:X2}, feature {request[2]}, function {request[3] >> 4}.")
+            { HidppErrorCode = response[5], HidppErrorReport = response[2] };
         return response[2] == request[2] && response[3] == request[3] ? response.Slice(4, response[0] == 0x10 ? 3 : 16).ToArray() : null;
     }
     public static int Be(ReadOnlySpan<byte> b) => b.Length >= 2 ? BinaryPrimitives.ReadUInt16BigEndian(b) : throw new InvalidDataException("Truncated integer.");
@@ -50,7 +53,13 @@ public sealed class FeatureClient(IReportTransport transport) : IDisposable
     private readonly Dictionary<int, byte> cache = [];
     public byte Find(int id, bool required = true)
     {
-        if (!cache.TryGetValue(id, out byte feature)) { feature = transport.Exchange(0, 0, Wire.Be(id))[0]; cache[id] = feature; }
+        if (!cache.TryGetValue(id, out byte feature))
+        {
+            try { feature = transport.Exchange(0, 0, Wire.Be(id))[0]; }
+            catch (DeviceException ex) when (ex.Kind == FailureKind.Protocol && ex.HidppErrorReport == 0xff && ex.HidppErrorCode == 0x06)
+            { feature = 0; } // HID++ 2.0 INVALID_FEATURE_INDEX from root lookup.
+            cache[id] = feature;
+        }
         if (required && feature == 0) throw new DeviceException(FailureKind.Unsupported, $"HID++ feature 0x{id:X4} is unavailable.");
         return feature;
     }

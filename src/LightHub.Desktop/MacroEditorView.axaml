@@ -26,7 +26,7 @@
           <ListBox Name="MacroSteps" ItemsSource="{Binding Steps}" SelectedItem="{Binding SelectedStep, Mode=TwoWay}" Height="160" AutomationProperties.Name="{Binding L[MacroSteps]}">
             <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" Margin="0,3"/></DataTemplate></ListBox.ItemTemplate>
           </ListBox>
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsEnabled="{Binding CanChangeStep}">
+          <Grid Name="MacroStepFields" ColumnDefinitions="*,*" ColumnSpacing="8" IsEnabled="{Binding CanChangeStep}" IsVisible="{Binding HasSelectedStep}">
             <StackPanel Spacing="4"><TextBlock Text="{Binding L[MacroKind]}"/><ComboBox ItemsSource="{Binding Kinds}" SelectedIndex="{Binding SelectedStep.Kind, Mode=TwoWay}" AutomationProperties.Name="{Binding L[MacroKind]}"/></StackPanel>
             <StackPanel Grid.Column="1" Spacing="4" IsVisible="{Binding SelectedStep.IsKey}"><TextBlock Text="{Binding L[MacroKey]}"/><ComboBox ItemsSource="{Binding Keys}" SelectedItem="{Binding SelectedStep.Key, Mode=TwoWay}" AutomationProperties.Name="{Binding L[MacroKey]}"/></StackPanel>
             <StackPanel Grid.Column="1" Spacing="4" IsVisible="{Binding SelectedStep.IsDelay}"><TextBlock Text="{Binding L[MacroDelayMs]}"/><NumericUpDown Value="{Binding SelectedStep.Delay, Mode=TwoWay}" Minimum="1" Maximum="10000" Increment="10" AutomationProperties.Name="{Binding L[MacroDelayMs]}"/></StackPanel>

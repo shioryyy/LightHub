@@ -121,14 +121,22 @@ public partial class MainWindow : Window
     {
         if (sender is not Control { DataContext: ButtonEditor button }) return;
         Model.SelectedButton = button;
-        this.FindControl<ListBox>("ButtonList")!.ScrollIntoView(button);
     }
+    private void ActionSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (Model.CanEdit && e.AddedItems.OfType<BindingOption>().FirstOrDefault() is { } action) Model.ButtonAssignment.Assign(action);
+    }
+    private void ActionGroupSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.AddedItems.OfType<ActionGroupItem>().FirstOrDefault() is { } group) Model.ButtonAssignment.Group = group.Index;
+    }
+    private void OpenMacrosClicked(object? sender, RoutedEventArgs e) => this.FindControl<TabControl>("Tabs")!.SelectedItem = this.FindControl<TabItem>("MacrosTab");
     private void CancelClicked(object? sender, RoutedEventArgs e) => Model.Cancel();
     private async void CurrentDpiClicked(object? sender, RoutedEventArgs e) => await Safe(() => Model.Run(Model.L["Busy"], _ => Model.ApplyCurrentDpi(), mutation: true));
     private async void EndPreviewClicked(object? sender, RoutedEventArgs e) => await Safe(() => Model.Run(Model.L["EndPreview"], _ => Model.EndPreview(), true));
     private async void ActivateClicked(object? sender, RoutedEventArgs e) => await Safe(async () =>
     {
-        if (await Confirm(Model.L["ActivateQuestion"])) await Model.Run(Model.L["Activate"], _ => Model.ActivateSelected(), true);
+        if (await Confirm(Model.L["ActivateQuestion"] + "\n\n" + Model.ActivationSummary())) await Model.Run(Model.ActivateLabel, _ => Model.ActivateSelected(), true);
     });
     private async void ApplyClicked(object? sender, RoutedEventArgs e) => await Safe(async () =>
     {
@@ -196,7 +204,7 @@ public partial class MainWindow : Window
         finally { syncing = false; }
         await Model.RefreshBackupsAsync();
     }
-    private async void AboutClicked(object? sender, RoutedEventArgs e) => await Message("LightHub", "0.3.0-alpha.1\nMIT License\n\nAvalonia 12.1.2 · .NET 10 · HidSharp 2.6.4\n\n" + (Model.L.Chinese ? "独立开源项目，与 Logitech 无隶属关系。" : "Independent open-source project, not affiliated with Logitech."));
+    private async void AboutClicked(object? sender, RoutedEventArgs e) => await Message("LightHub", Program.VersionText + "\nMIT License\n\nAvalonia 12.1.2 · .NET 10 · HidSharp 2.6.4\n\n" + (Model.L.Chinese ? "独立开源项目，与 Logitech 无隶属关系。" : "Independent open-source project, not affiliated with Logitech."));
     private async void SavePresetClicked(object? sender, RoutedEventArgs e) => await Safe(() => Model.Run(Model.L["SavePreset"], _ => Model.SavePreset()));
     private async void LoadPresetClicked(object? sender, RoutedEventArgs e) => await Safe(async () => { var selected = Model.SelectedPreset; if (selected is not null && await Discard()) Model.LoadPreset(selected); });
     private async void DeletePresetClicked(object? sender, RoutedEventArgs e) => await Safe(async () => { var selected = Model.SelectedPreset; if (selected is not null && await Confirm(Model.L["DeletePresetQuestion"])) await Model.Run(Model.L["DeleteBackups"], _ => Task.Run(() => Model.Assets.Delete(selected))); });

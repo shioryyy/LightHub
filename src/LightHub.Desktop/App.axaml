@@ -9,6 +9,8 @@
     <Style Selector="ListBox#ButtonList ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
     <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="#637078"/></Style>
     <Style Selector="TextBlock.section"><Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+    <Style Selector="Border.dpi-stage"><Setter Property="BorderBrush" Value="#DFE4E7"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="6"/><Setter Property="Background" Value="#F8FAFA"/></Style>
+    <Style Selector="Border.dpi-stage.current"><Setter Property="BorderBrush" Value="#00795F"/><Setter Property="Background" Value="#F0F7F5"/></Style>
     <Style Selector="ComboBox"><Setter Property="MinHeight" Value="34"/><Setter Property="HorizontalAlignment" Value="Stretch"/></Style>
     <Style Selector="NumericUpDown"><Setter Property="MinHeight" Value="36"/><Setter Property="FormatString" Value="0"/></Style>
     <Style Selector="TabItem"><Setter Property="FontSize" Value="15"/></Style>

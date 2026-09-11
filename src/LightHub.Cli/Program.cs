@@ -9,7 +9,7 @@ try
 {
     if (args.Length == 0 || args[0] is "--help" or "help")
     {
-        Console.WriteLine("LightHub CLI\n  list\n  inspect <endpoint-id>\n  trigger-inspect <endpoint-id> (read only; no event capture)\n  backup <endpoint-id> <path>\n  restore <endpoint-id> <path> --yes\n  save <endpoint-id> <sector> <preset.lhpreset> --yes\n  activate <endpoint-id> <sector> --yes\n  smoke <endpoint-id> --write-inactive-and-restore\n  dpi-smoke <endpoint-id>\nIDs come from list. Operation permissions are independent. Backups contain device identity."); return 0;
+        Console.WriteLine("LightHub CLI\n  list\n  inspect <endpoint-id>\n  trigger-inspect <endpoint-id> (read only; no event capture)\n  backup <endpoint-id> <path>\n  restore <endpoint-id> <path> --yes\n  save <endpoint-id> <sector> <preset.lhpreset> --yes\n  activate <endpoint-id> <sector> [--enable-disabled] --yes\n  smoke <endpoint-id> --write-inactive-and-restore\n  dpi-smoke <endpoint-id>\nIDs come from list. Operation permissions are independent. Backups contain device identity."); return 0;
     }
     var scan = HidDiscovery.Scan();
     foreach (var warning in scan.Warnings) Console.Error.WriteLine(warning);
@@ -35,8 +35,8 @@ try
             int target = int.Parse(args[2]); var preset = LocalAssets.Read(args[3]);
             var mapped = LocalAssets.Map(preset, read.Support.ModelId, MouseProfile.Decode(snapshot.Sectors[target], snapshot.Layout));
             await session.Save(snapshot, target, mapped, report: Console.WriteLine); Console.WriteLine("Saved and verified; active state preserved."); break;
-        case "activate" when args.Length == 4 && args[3] == "--yes":
-            await session.Activate(snapshot, int.Parse(args[2]), Console.WriteLine); Console.WriteLine("Activation verified."); break;
+        case "activate" when (args.Length == 4 && args[3] == "--yes") || (args.Length == 5 && args[3] == "--enable-disabled" && args[4] == "--yes"):
+            await session.Activate(snapshot, int.Parse(args[2]), Console.WriteLine, enableDisabled: args.Length == 5); Console.WriteLine("Activation verified."); break;
         case "dpi-smoke" when args.Length == 2:
             int originalDpi = read.Telemetry.Dpi ?? throw new InvalidOperationException("Current DPI unavailable.");
             int testDpi = originalDpi + read.DpiCaps!.Step;

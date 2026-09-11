@@ -30,11 +30,13 @@ jobs:
       - name: Test (no hardware)
         run: dotnet test --no-restore -c Release --logger trx --results-directory artifacts/test-results
       - name: Report test failures
-        if: failure()
+        if: always()
         shell: pwsh
         run: |
           Get-ChildItem artifacts/test-results -Filter *.trx -ErrorAction SilentlyContinue | ForEach-Object {
             [xml]$results = Get-Content $_.FullName -Raw
+            $counts = $results.TestRun.ResultSummary.Counters
+            "Tests: $($counts.total) total, $($counts.passed) passed, $($counts.failed) failed, $($counts.notExecuted) not executed" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
             foreach ($test in $results.TestRun.Results.UnitTestResult) {
               if ($test.outcome -eq 'Failed') {
                 $message = "$($test.testName): $($test.Output.ErrorInfo.Message) $($test.Output.ErrorInfo.StackTrace)"
@@ -53,6 +55,12 @@ jobs:
       - name: Publish self-contained package
         shell: pwsh
         run: ./tools/publish.ps1 -Runtime ${{ matrix.rid }} -SkipTests
+      - name: Verify package and provenance
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content Directory.Build.props -Raw
+          $version = [string]$props.Project.PropertyGroup.Version
+          ./tools/verify-package.ps1 -Directory "dist/LightHub-$version-${{ matrix.rid }}" -Runtime '${{ matrix.rid }}'
       - uses: actions/upload-artifact@v4
         with:
           name: LightHub-${{ matrix.rid }}
@@ -60,4 +68,37 @@ jobs:
             dist/*.zip
             dist/*.tar.gz
             artifacts/test-results/*.trx
+          if-no-files-found: error
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build source archive and reconstruct without Git metadata
+        shell: pwsh
+        run: |
+          ./tools/source-archive.ps1
+          [xml]$props = Get-Content Directory.Build.props -Raw
+          $zip = "dist/LightHub-$($props.Project.PropertyGroup.Version)-source.zip"
+          $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
+          try {
+            if (@($archive.Entries | Where-Object { $_.FullName -match '\\|(^|/)(bin|obj|artifacts)/|\.(lhbackup|lhmacro|lhdraft|lhpreset|log)$' }).Count) { throw 'Unexpected source archive content' }
+          } finally { $archive.Dispose() }
+          Expand-Archive -LiteralPath $zip -DestinationPath artifacts/source-rebuild
+          Push-Location artifacts/source-rebuild/LightHub
+          try {
+            dotnet restore --locked-mode
+            if ($LASTEXITCODE -ne 0) { throw 'Source restore failed' }
+            dotnet test --no-restore -c Release --logger trx --results-directory ../../source-test-results
+            if ($LASTEXITCODE -ne 0) { throw 'Source tests failed' }
+          } finally { Pop-Location }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: LightHub-source-and-test-results
+          path: |
+            dist/*-source.zip
+            artifacts/source-test-results/*.trx
           if-no-files-found: error

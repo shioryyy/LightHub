@@ -15,6 +15,7 @@ public sealed class Workspace : Observable
     public TransactionStore Store { get; }
     public LocalAssets Assets { get; }
     public MacroEditorViewModel Macros { get; }
+    public ButtonAssignmentViewModel ButtonAssignment { get; }
     private DeviceSession? session;
     private bool refreshingRuntime;
     private bool runtimeStale;
@@ -24,13 +25,23 @@ public sealed class Workspace : Observable
     public LocalPreset? SelectedPreset { get; set; }
     public string PresetName { get; set; } = "";
     public int ReplacementStage { get; set; } = -1;
+    public bool NeedsReplacementStage => Snapshot is { } s && s.ActiveSector == Sector && s.DpiIndex < Stages.Count && !Stages[s.DpiIndex].Enabled;
     private readonly DispatcherTimer draftTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly DispatcherTimer previewTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     public bool Previewing => session?.Previewing == true;
     public bool CanEndPreview => !busy && Previewing;
     private IReadOnlyDictionary<DeviceOperation, SupportDecision> operations = new Dictionary<DeviceOperation, SupportDecision>();
-    public bool CanActivate => !busy && !Demo && !dirty && !connectionChanged && !RecoveryRequired && !Previewing && operations.GetValueOrDefault(DeviceOperation.Activate)?.CanWrite == true;
-    public string ActivationReason => operations.GetValueOrDefault(DeviceOperation.Activate)?.Reason ?? "Read device capabilities first.";
+    public bool SelectedSlotDisabled => Snapshot?.Directory().FirstOrDefault(e => e.Sector == Sector)?.Enabled == false;
+    public bool CanActivate => !busy && !Demo && !dirty && !connectionChanged && !RecoveryRequired && !Previewing &&
+        operations.GetValueOrDefault(DeviceOperation.Activate)?.CanWrite == true && (!SelectedSlotDisabled || operations.GetValueOrDefault(DeviceOperation.EnableProfile)?.CanWrite == true);
+    public string ActivationReason => operations.GetValueOrDefault(SelectedSlotDisabled ? DeviceOperation.EnableProfile : DeviceOperation.Activate)?.Reason ?? "Read device capabilities first.";
+    public string ActivateLabel => L[SelectedSlotDisabled ? "EnableAndActivate" : "Activate"];
+    public string ActivationSummary()
+    {
+        if (Snapshot is null || DpiCaps is null) throw new InvalidOperationException(L["Read"]);
+        var plan = SlotActivation.Prepare(Snapshot, Sector, DpiCaps, Rates, SelectedSlotDisabled);
+        return string.Format(L["ActivationDetails"], plan.Slot, plan.TargetDpi, L[plan.EnablesSlot ? "EnableAndActivate" : "Activate"]);
+    }
     public bool RecoveryRequired { get; private set; }
     public ObservableCollection<DeviceEndpoint> Devices { get; } = [];
     public ObservableCollection<ProfileItem> Profiles { get; } = [];
@@ -44,7 +55,9 @@ public sealed class Workspace : Observable
     public bool CanExportBackup => !busy && !Demo && SelectedBackups.Count == 1 && SelectedBackups[0].Backup.Readable;
     public bool CanRestoreSelectedBackup => CanExportBackup && CanRead;
     public bool CanManageBackups => !busy && !Demo;
-    public IReadOnlyList<DeviceRule> Catalog => DeviceCatalog.Load().Rules;
+    private static readonly DeviceCatalog Definitions = DeviceCatalog.Load();
+    public IReadOnlyList<DeviceRule> Catalog => Definitions.Rules;
+    private DeviceRule? DisplayRule => Snapshot is null ? null : Definitions.FindRule(Snapshot.Identity);
     public string CompatibilityText => L.Chinese ? "HID++ 游戏鼠标 · Windows / Linux / macOS\n设备可被识别不等于已验证可写。可写状态由型号、内存格式和平台的验证记录共同决定。" : "HID++ gaming mice · Windows / Linux / macOS\nDiscovery is not a write-support claim. Write access requires matching model, memory layout and platform evidence.";
     private string recoveryText = "";
     public string RecoveryText => recoveryText;
@@ -61,7 +74,7 @@ public sealed class Workspace : Observable
     public bool CanSetCurrentDpi => !busy && !Demo && !connectionChanged && !RecoveryRequired && operations.GetValueOrDefault(DeviceOperation.RuntimeDpi)?.CanWrite == true;
     public int Sector { get; private set; }
     public string ButtonProfileLabel => Profiles.FirstOrDefault(p => p.Sector == Sector)?.Label ?? L["Buttons"];
-    public bool HasButtonMap => Snapshot is { Layout.ButtonCount: 8 } s && s.Identity.ProductIds.Intersect(new[] { "4079", "C088" }, StringComparer.OrdinalIgnoreCase).Any();
+    public bool HasButtonMap => Snapshot is { } s && DisplayRule is { ButtonMap: "gpw-top" } r && r.Controls.Length == s.Layout.ButtonCount;
     private ButtonEditor? selectedButton;
     public ButtonEditor? SelectedButton
     {
@@ -69,6 +82,7 @@ public sealed class Workspace : Observable
         set
         {
             if (!Set(ref selectedButton, value)) return;
+            ButtonAssignment.Button = value;
             foreach (var button in Buttons) button.Highlighted = button == value;
         }
     }
@@ -86,6 +100,11 @@ public sealed class Workspace : Observable
     public bool CanEdit => !busy && HasSnapshot && profileReadable;
     public bool CanWrite => CanEdit && Support?.CanWrite == true && !Demo && !connectionChanged && !runtimeStale && !RecoveryRequired && !Previewing && Snapshot?.Mode == 1;
     public bool CanUndo => !busy && dirty;
+    public bool CanSaveToSlot => CanWrite && dirty;
+    public int EditingSlot => Snapshot?.Directory().FirstOrDefault(e => e.Sector == Sector)?.Slot ?? 0;
+    public string SaveTargetLabel => EditingSlot > 0 ? string.Format(L["SaveToSlot"], EditingSlot) : L["Apply"];
+    public string EditingTargetText => EditingSlot > 0 ? string.Format(L["EditingSlot"], EditingSlot) : L["Select"];
+    public string ActiveSlotText => Snapshot is { } s ? string.Format(L["ActiveSlotReading"], s.Directory().Single(e => e.Sector == s.ActiveSector).Slot) : "";
     public bool CanCancel => busy && !writing;
     public string DirtyText => dirty ? L["Dirty"] : Demo ? L["Demo"] : "";
     public string DeviceName => Snapshot?.Identity.Name ?? L["Select"];
@@ -94,6 +113,7 @@ public sealed class Workspace : Observable
     public string DiagnosticText { get => diagnostics; private set => Set(ref diagnostics, value); }
     public string DiscoverySummary { get => summary; private set => Set(ref summary, value); }
     public string SupportText => Demo ? L["Demo"] : Support is null ? "" : (Support.CanWrite ? L["Writable"] : L["ReadOnly"]) + " · " + Support.Reason;
+    public string SupportBadge => Demo ? L["Demo"] : Support is null ? "" : L[Support.CanWrite ? "BasicProfileWritable" : "ReadOnly"];
     public string Status { get => status; set => Set(ref status, value); }
     public bool Activate { get => activate; set { if (Set(ref activate, value)) MarkDirty(); } }
     public int DefaultIndex { get => defaultIndex; set { if (Set(ref defaultIndex, value)) MarkDirty(); } }
@@ -103,6 +123,7 @@ public sealed class Workspace : Observable
     {
         Demo = demo; Store = store ?? new(demo ? Path.Combine(Path.GetTempPath(), "LightHub-demo", Guid.NewGuid().ToString("N")) : null); Assets = new(Store.Root); Status = L["Ready"]; PresetName = L["NewPreset"];
         Macros = new(new MacroLibrary(Store.Root), L);
+        ButtonAssignment = new(L);
         draftTimer.Tick += async (_, _) =>
         {
             draftTimer.Stop(); if (!dirty || Demo) return;
@@ -119,15 +140,34 @@ public sealed class Workspace : Observable
     }
     public void SetLanguage(bool chinese)
     {
-        var preservedDraft = Snapshot is not null && profileReadable ? Draft() : null;
+        // Preserve editor coordinates and invalid input verbatim. Serializing a
+        // semantic profile here would compact holes and change the active mapping.
+        var stageEdits = Stages.Select(s => (s.Enabled, s.Value)).ToArray();
+        var bindings = Buttons.Select(b => (byte[])b.Selected.Bytes.Clone()).ToArray();
+        bool preserve = Snapshot is not null && profileReadable;
+        var selections = (DefaultIndex, ShiftSelection, Rate, ReplacementStage);
         bool wasDirty = dirty;
         loading = true;
-        L = new(chinese); foreach (string name in new[] { nameof(L), nameof(StageNames), nameof(ShiftNames), nameof(CompatibilityText), nameof(SupportText), nameof(DeviceName) }) Changed(name);
+        L = new(chinese); foreach (string name in new[] { nameof(L), nameof(StageNames), nameof(ShiftNames), nameof(CompatibilityText), nameof(SupportText), nameof(SupportBadge), nameof(DeviceName) }) Changed(name);
         Macros.SetLanguage(L);
+        ButtonAssignment.SetLanguage(L);
         if (Demo) { Status = L["Demo"]; DiscoverySummary = L["Demo"]; }
         if (Snapshot is not null)
         {
-            FillProfiles(); LoadProfile(Sector); if (preservedDraft is not null) SetDraft(preservedDraft, wasDirty);
+            FillProfiles(); LoadProfile(Sector);
+            if (preserve && stageEdits.Length == Stages.Count && bindings.Length == Buttons.Count)
+            {
+                loading = true;
+                for (int i = 0; i < Stages.Count; i++) { Stages[i].Enabled = stageEdits[i].Enabled; Stages[i].Value = stageEdits[i].Value; }
+                for (int i = 0; i < Buttons.Count; i++)
+                {
+                    var option = Buttons[i].Options.FirstOrDefault(o => o.Bytes.SequenceEqual(bindings[i])) ?? new BindingOption(L["PreservedAction"], bindings[i]);
+                    if (!Buttons[i].Options.Contains(option)) Buttons[i].Options.Add(option);
+                    Buttons[i].Selected = option;
+                }
+                DefaultIndex = selections.DefaultIndex; ShiftSelection = selections.ShiftSelection; Rate = selections.Rate; ReplacementStage = selections.ReplacementStage;
+                dirty = wasDirty;
+            }
         }
         loading = false;
         Changed(nameof(DefaultIndex)); Changed(nameof(ShiftSelection)); Changed(nameof(Rate));
@@ -141,7 +181,7 @@ public sealed class Workspace : Observable
         Status = L.Chinese ? "设备连接已变化，请刷新。未保存的编辑已保留。" : "Device connection changed. Refresh to reconnect; unsaved edits are retained.";
         NotifyState();
     }
-    private void NotifyState() { foreach (string name in new[] { nameof(Busy), nameof(Idle), nameof(Dirty), nameof(HasSnapshot), nameof(HasButtonMap), nameof(CanRead), nameof(CanEdit), nameof(CanWrite), nameof(CanSetCurrentDpi), nameof(MinimumDpi), nameof(MaximumDpi), nameof(DpiStep), nameof(CanUndo), nameof(CanCancel), nameof(DirtyText), nameof(CanDeleteBackups), nameof(CanExportBackup), nameof(CanRestoreSelectedBackup), nameof(CanManageBackups), nameof(CanActivate), nameof(ActivationReason), nameof(Previewing), nameof(CanEndPreview) }) Changed(name); }
+    private void NotifyState() { foreach (var stage in Stages) stage.Describe(Snapshot?.ActiveSector == Sector && Snapshot?.DpiIndex == stage.Index - 1, DefaultIndex == stage.Index - 1, L); foreach (string name in new[] { nameof(Busy), nameof(Idle), nameof(Dirty), nameof(HasSnapshot), nameof(HasButtonMap), nameof(CanRead), nameof(CanEdit), nameof(CanWrite), nameof(CanSetCurrentDpi), nameof(MinimumDpi), nameof(MaximumDpi), nameof(DpiStep), nameof(CanUndo), nameof(CanCancel), nameof(DirtyText), nameof(SupportBadge), nameof(CanDeleteBackups), nameof(CanExportBackup), nameof(CanRestoreSelectedBackup), nameof(CanManageBackups), nameof(NeedsReplacementStage), nameof(CanSaveToSlot), nameof(SaveTargetLabel), nameof(EditingTargetText), nameof(ActiveSlotText), nameof(CanActivate), nameof(ActivationReason), nameof(ActivateLabel), nameof(SelectedSlotDisabled), nameof(Previewing), nameof(CanEndPreview) }) Changed(name); }
     public async Task Run(string message, Func<CancellationToken, Task> action, bool mutation = false)
     {
         if (busy) return; busy = true; writing = mutation; cancellation = new(); Status = message; NotifyState();
@@ -221,14 +261,14 @@ public sealed class Workspace : Observable
     }
     public void LoadProfile(int sector)
     {
-        if (Snapshot is null) return; loading = true; Sector = sector;
+        if (Snapshot is null) return; int selectedNumber = selectedButton?.Number ?? 1; loading = true; Sector = sector;
         try
         {
             var p = MouseProfile.Decode(Snapshot.Sectors[sector], Snapshot.Layout); profileReadable = true;
             Stages.Clear(); Buttons.Clear();
-            for (int i = 0; i < 5; i++) { var stage = new DpiStage(i + 1, p.Dpi[i]); stage.PropertyChanged += (_, _) => MarkDirty(); Stages.Add(stage); }
-            for (int i = 0; i < p.Bindings.Length; i++) { var button = new ButtonEditor(i + 1, p.Bindings[i], L, HasButtonMap); button.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ButtonEditor.Selected)) MarkDirty(); }; Buttons.Add(button); }
-            SelectedButton = Buttons.FirstOrDefault();
+            for (int i = 0; i < 5; i++) { var stage = new DpiStage(i + 1, p.Dpi[i]); stage.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(DpiStage.Enabled) or nameof(DpiStage.Value)) MarkDirty(); }; Stages.Add(stage); }
+            for (int i = 0; i < p.Bindings.Length; i++) { var button = new ButtonEditor(i + 1, p.Bindings[i], L, HasButtonMap ? DisplayRule!.Controls[i] : null); button.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ButtonEditor.Selected)) MarkDirty(); }; Buttons.Add(button); }
+            SelectedButton = Buttons.ElementAtOrDefault(selectedNumber - 1) ?? Buttons.FirstOrDefault();
             DefaultIndex = p.DefaultIndex; ShiftSelection = p.ShiftIndex == 255 ? 0 : p.ShiftIndex + 1; Rate = p.Rate; Activate = false; ReplacementStage = -1; dirty = false;
         }
         catch (Exception ex) when (ex is IOException) { Stages.Clear(); Buttons.Clear(); Status = ex.Message; profileReadable = false; }
@@ -237,23 +277,28 @@ public sealed class Workspace : Observable
     public MouseProfile Draft()
     {
         var enabled = Stages.Select((stage, index) => (stage, index)).Where(x => x.stage.Enabled).ToArray();
-        var values = enabled.Select(x => checked((int)(x.stage.Value ?? throw new InvalidDataException("DPI is empty.")))).ToList();
+        var values = enabled.Select(x => x.stage.Value is { } dpi && dpi == decimal.Truncate(dpi) ? checked((int)dpi) : throw new InvalidDataException(L["DpiInteger"])).ToList();
         while (values.Count < 5) values.Add(0);
-        int MapIndex(int selected) => selected >= 0 && selected < Stages.Count && Stages[selected].Enabled
-            ? enabled.TakeWhile(x => x.index != selected).Count() : selected;
-        int defaultIndex = MapIndex(DefaultIndex);
-        int shiftIndex = ShiftSelection == 0 ? 255 : MapIndex(ShiftSelection - 1);
+        int MapIndex(int selected, string error) => selected >= 0 && selected < Stages.Count && Stages[selected].Enabled
+            ? enabled.TakeWhile(x => x.index != selected).Count() : throw new InvalidDataException(L[error]);
+        int defaultIndex = MapIndex(DefaultIndex, "DefaultStageRequired");
+        int shiftIndex = ShiftSelection == 0 ? 255 : MapIndex(ShiftSelection - 1, "ShiftStageRequired");
         return new(Rate, values.ToArray(), defaultIndex, shiftIndex, Buttons.Select(b => b.Selected.Bytes).ToArray());
     }
     public void ValidateDraft()
     {
         if (Snapshot is null || DpiCaps is null) throw new InvalidOperationException("No editable device.");
         _ = Draft().Encode(Snapshot.Sectors[Sector], Snapshot.Layout, DpiCaps, Rates);
-        if (Sector == Snapshot.ActiveSector)
-        {
-            int stage = ReplacementStage < 0 ? Snapshot.DpiIndex : ReplacementStage;
-            if (stage > 4 || Draft().Dpi[stage] == 0) throw new InvalidDataException(L["ReplacementStageRequired"]);
-        }
+        _ = RuntimeStageForDraft();
+    }
+    public int? RuntimeStageForDraft()
+    {
+        if (Snapshot is not { } snapshot || Sector != snapshot.ActiveSector) return null;
+        int source = snapshot.DpiIndex;
+        if (source >= Stages.Count) throw new InvalidDataException(L["ReplacementStageRequired"]);
+        if (!Stages[source].Enabled) source = ReplacementStage;
+        if (source < 0 || source >= Stages.Count || !Stages[source].Enabled) throw new InvalidDataException(L["ReplacementStageRequired"]);
+        return Stages.Take(source).Count(stage => stage.Enabled);
     }
     public string ChangeSummary()
     {
@@ -266,7 +311,7 @@ public sealed class Workspace : Observable
         if (Demo || Endpoint is null || Snapshot is null) throw new InvalidOperationException("Hardware writes are unavailable.");
         var original = Snapshot; var draft = Draft(); int sector = Sector;
         var timer = Stopwatch.StartNew();
-        var result = await session!.Save(original, sector, draft, ReplacementStage < 0 ? null : ReplacementStage, p => Dispatcher.UIThread.Post(() => Status = L[p]));
+        var result = await session!.Save(original, sector, draft, RuntimeStageForDraft(), p => Dispatcher.UIThread.Post(() => Status = L[p]));
         Snapshot = result.Snapshot; UpdateTelemetry(result.Telemetry);
         FillProfiles(); LoadProfile(sector); DiagnosticText = RedactedDiagnostics();
         Status = L["Saved"] + $" ({timer.Elapsed.TotalSeconds:F2} s)";
@@ -326,7 +371,7 @@ public sealed class Workspace : Observable
     public async Task ActivateSelected()
     {
         if (dirty || Snapshot is null || session is null) throw new InvalidOperationException("Save or discard the draft first.");
-        var result = await session.Activate(Snapshot, Sector); Snapshot = result.Snapshot; UpdateTelemetry(result.Telemetry); FillProfiles(); NotifyState();
+        var result = await session.Activate(Snapshot, Sector, enableDisabled: SelectedSlotDisabled); Snapshot = result.Snapshot; UpdateTelemetry(result.Telemetry); FillProfiles(); NotifyState();
     }
     public void SetDraft(MouseProfile profile, bool changed = true)
     {
@@ -343,12 +388,12 @@ public sealed class Workspace : Observable
         }
         finally { loading = false; NotifyState(); }
     }
-    public LocalPreset CreatePreset() => LocalAssets.FromProfile(PresetName, Support?.ModelId == "demo" ? "g-pro-wireless" : Support?.ModelId ?? "unknown", Draft());
+    public LocalPreset CreatePreset() => LocalAssets.FromProfile(PresetName, DisplayRule?.Id ?? Support?.ModelId ?? "unknown", Draft());
     public async Task SavePreset() { var preset = CreatePreset(); await Task.Run(() => Assets.Save(preset)); await RefreshBackupsAsync(); }
     public void LoadPreset(LocalPreset preset)
     {
         if (Snapshot is null || DpiCaps is null) throw new InvalidOperationException("Select a target device first.");
-        var profile = LocalAssets.Map(preset, Demo ? "g-pro-wireless" : Support?.ModelId ?? "unknown", Draft());
+        var profile = LocalAssets.Map(preset, DisplayRule?.Id ?? Support?.ModelId ?? "unknown", Draft());
         _ = profile.Encode(Snapshot.Sectors[Sector], Snapshot.Layout, DpiCaps, Rates); SetDraft(profile);
     }
     public async Task SaveDraft() { var preset = CreatePreset(); await Task.Run(() => Assets.SaveDraft(preset)); dirty = false; NotifyState(); }

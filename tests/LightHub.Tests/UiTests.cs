@@ -92,7 +92,8 @@ public sealed partial class UiTests
         w.FindControl<TabControl>("Tabs")!.SelectedIndex = 1; Dispatcher.UIThread.RunJobs();
         var hotspot = w.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("hotspot") && b.DataContext is ButtonEditor { Number: 8 });
         hotspot.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Dispatcher.UIThread.RunJobs();
-        Assert.Same(w.Model.Buttons[7], w.FindControl<ListBox>("ButtonList")!.SelectedItem);
+        Assert.Same(w.Model.Buttons[7], w.FindControl<ComboBox>("ButtonSelector")!.SelectedItem);
+        Assert.Equal(w.Model.Buttons[7].Selected.Label, w.FindControl<TextBlock>("CurrentAssignment")!.Text);
         Assert.True(w.Model.Buttons[7].Highlighted); Assert.False(w.Model.Dirty); w.Close();
     }
     [AvaloniaFact]

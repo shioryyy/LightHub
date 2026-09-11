@@ -18,35 +18,35 @@
         <TextBlock Grid.Row="4" Text="{Binding DiscoverySummary}" Classes="muted" TextWrapping="Wrap" Margin="8,12,8,0" FontSize="11"/>
       </Grid>
     </Border>
-    <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*" Margin="26,20,26,12">
-      <Grid Name="DeviceHeading" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
-        <StackPanel Spacing="7"><TextBlock Text="{Binding DeviceName}" FontSize="25" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding DeviceDetails}" Classes="muted" TextWrapping="Wrap"/><TextBlock Text="{Binding SupportText}" Foreground="#00795F" TextWrapping="Wrap"/></StackPanel>
+    <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*" Margin="26,12,26,12">
+      <Grid Name="DeviceHeading" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+        <StackPanel Spacing="4"><TextBlock Text="{Binding DeviceName}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" ToolTip.Tip="{Binding DeviceDetails}"/><TextBlock Text="{Binding SupportBadge}" Foreground="#00795F" FontSize="11" TextWrapping="Wrap" ToolTip.Tip="{Binding SupportText}"/></StackPanel>
         <Button Grid.Column="1" Content="{Binding L[Read]}" Click="ReadClicked" IsEnabled="{Binding CanRead}" VerticalAlignment="Top" Margin="14,0,0,0"/>
       </Grid>
       <TabControl Grid.Row="1" Name="Tabs">
         <TabItem Header="{Binding L[TabProfile]}" Width="138">
           <ScrollViewer Name="ProfileScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Spacing="18" Margin="0,18,8,20" IsEnabled="{Binding HasSnapshot}">
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18"><ComboBox ItemsSource="{Binding Profiles}" Name="ProfileList" SelectionChanged="ProfileChanged" IsEnabled="{Binding Idle}"/><Button Grid.Column="1" Content="{Binding L[Activate]}" Click="ActivateClicked" IsEnabled="{Binding CanActivate}" ToolTip.Tip="{Binding ActivationReason}"/></Grid>
-              <Border Background="#F0F7F5" Padding="12,10" CornerRadius="4"><TextBlock Text="{Binding TelemetryText}" TextWrapping="Wrap"/></Border>
-              <Grid ColumnDefinitions="*,160,Auto" ColumnSpacing="12" IsEnabled="{Binding CanSetCurrentDpi}">
-                <TextBlock Text="{Binding L[CurrentDpi]}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                <NumericUpDown Grid.Column="1" Name="CurrentDpiInput" Value="{Binding CurrentDpi}" Minimum="{Binding MinimumDpi}" Maximum="{Binding MaximumDpi}" Increment="{Binding DpiStep}"/>
+            <StackPanel Spacing="10" Margin="0,12,6,10" IsEnabled="{Binding HasSnapshot}">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"><ComboBox ItemsSource="{Binding Profiles}" Name="ProfileList" SelectionChanged="ProfileChanged" IsEnabled="{Binding Idle}" ToolTip.Tip="{Binding EditingTargetText}"/><Button Grid.Column="1" Content="{Binding ActivateLabel}" Click="ActivateClicked" IsEnabled="{Binding CanActivate}" ToolTip.Tip="{Binding ActivationReason}"/></Grid>
+              <Border Background="#F0F7F5" Padding="10,8" CornerRadius="4"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"><TextBlock Text="{Binding ActiveSlotText}" FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap"/><TextBlock Grid.Column="1" Text="{Binding TelemetryText}" TextWrapping="Wrap" MaxWidth="250"/></Grid></Border>
+              <Grid ColumnDefinitions="*,150,Auto" ColumnSpacing="8" IsEnabled="{Binding CanSetCurrentDpi}" ToolTip.Tip="{Binding L[PreviewHint]}">
+                <TextBlock Text="{Binding L[PreviewValue]}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                <NumericUpDown Grid.Column="1" Name="CurrentDpiInput" AutomationProperties.Name="{Binding L[PreviewValue]}" Value="{Binding CurrentDpi}" Minimum="{Binding MinimumDpi}" Maximum="{Binding MaximumDpi}" Increment="{Binding DpiStep}"/>
                 <Button Grid.Column="2" Content="{Binding L[SetCurrentDpi]}" Click="CurrentDpiClicked"/>
               </Grid>
               <Button Content="{Binding L[EndPreview]}" Click="EndPreviewClicked" IsVisible="{Binding Previewing}" IsEnabled="{Binding CanEndPreview}"/>
-              <StackPanel Spacing="12" IsEnabled="{Binding CanEdit}">
-                <TextBlock Text="{Binding L[Dpi]}" Classes="section"/>
-                <ItemsControl ItemsSource="{Binding Stages}">
+              <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
+                <TextBlock Text="{Binding EditingTargetText}" Classes="section" ToolTip.Tip="{Binding L[DpiDraftHint]}"/>
+                <ItemsControl ItemsSource="{Binding Stages}" Name="DpiCards">
                   <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="5"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate><DataTemplate><StackPanel Margin="0,0,10,0" Spacing="6"><CheckBox IsChecked="{Binding Enabled}" Content="{Binding Index}"/><NumericUpDown Value="{Binding Value}" Minimum="50" Maximum="65535" Increment="50" IsEnabled="{Binding Enabled}"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate>
+                  <ItemsControl.ItemTemplate><DataTemplate><Border Classes="dpi-stage" Classes.current="{Binding IsCurrent}" Padding="6" Margin="0,0,6,0"><StackPanel Spacing="4"><CheckBox IsChecked="{Binding Enabled}" Content="{Binding Index}"/><NumericUpDown AutomationProperties.Name="{Binding DpiLabel}" Value="{Binding Value}" Minimum="{Binding $parent[Window].DataContext.MinimumDpi}" Maximum="{Binding $parent[Window].DataContext.MaximumDpi}" Increment="{Binding $parent[Window].DataContext.DpiStep}" IsEnabled="{Binding Enabled}"/><TextBlock Text="{Binding StateLabel}" TextWrapping="Wrap" FontSize="10" MinHeight="14"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="16">
-                  <StackPanel Spacing="6"><TextBlock Text="{Binding L[Default]}"/><ComboBox ItemsSource="{Binding StageNames}" SelectedIndex="{Binding DefaultIndex}"/></StackPanel>
-                  <StackPanel Grid.Column="1" Spacing="6"><TextBlock Text="{Binding L[Shift]}"/><ComboBox ItemsSource="{Binding ShiftNames}" SelectedIndex="{Binding ShiftSelection}"/></StackPanel>
-                  <StackPanel Grid.Column="2" Spacing="6"><TextBlock Text="{Binding L[Rate]}"/><ComboBox ItemsSource="{Binding Rates}" SelectedItem="{Binding Rate}"/></StackPanel>
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                  <StackPanel Spacing="4"><TextBlock Text="{Binding L[Default]}"/><ComboBox ItemsSource="{Binding StageNames}" SelectedIndex="{Binding DefaultIndex}"/></StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="4"><TextBlock Text="{Binding L[Shift]}"/><ComboBox ItemsSource="{Binding ShiftNames}" SelectedIndex="{Binding ShiftSelection}"/></StackPanel>
+                  <StackPanel Grid.Column="2" Spacing="4"><TextBlock Text="{Binding L[Rate]}"/><ComboBox ItemsSource="{Binding Rates}" SelectedItem="{Binding Rate}"/></StackPanel>
                 </Grid>
-                <StackPanel Spacing="6"><TextBlock Text="{Binding L[ReplacementStage]}" TextWrapping="Wrap"/><ComboBox ItemsSource="{Binding StageNames}" SelectedIndex="{Binding ReplacementStage}" Width="180" HorizontalAlignment="Left"/></StackPanel>
+                <StackPanel Spacing="4" IsVisible="{Binding NeedsReplacementStage}"><TextBlock Text="{Binding L[ReplacementStage]}" TextWrapping="Wrap"/><ComboBox ItemsSource="{Binding StageNames}" SelectedIndex="{Binding ReplacementStage}" Width="180" HorizontalAlignment="Left"/></StackPanel>
               </StackPanel>
             </StackPanel>
           </ScrollViewer>
@@ -55,9 +55,9 @@
           <Grid RowDefinitions="Auto,*" Margin="0,18,0,12" IsEnabled="{Binding HasSnapshot}">
             <TextBlock Text="{Binding ButtonProfileLabel}" Classes="section" Margin="0,0,0,14"/>
             <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="12">
-              <Grid IsVisible="{Binding HasButtonMap}" Width="192" RowDefinitions="Auto,*" RowSpacing="4">
+              <Grid IsVisible="{Binding HasButtonMap}" Width="240" RowDefinitions="Auto,Auto,*" RowSpacing="4">
                 <TextBlock Text="{Binding L[TopView]}" HorizontalAlignment="Center" Classes="muted"/>
-                <Viewbox Grid.Row="1" MaxWidth="180" MaxHeight="272" Stretch="Uniform" VerticalAlignment="Top"><Grid Width="216" Height="326">
+                <TextBlock Grid.Row="1" Text="{Binding L[SelectPhysicalButton]}" TextWrapping="Wrap" Classes="muted" FontSize="11" Margin="0,4,0,8"/><Viewbox Grid.Row="2" MaxWidth="232" MaxHeight="350" Stretch="Uniform" VerticalAlignment="Top"><Grid Width="216" Height="326">
                   <Image Source="avares://LightHub.Desktop/Assets/mouse.png" Width="216" Height="270" VerticalAlignment="Top"/>
                   <ItemsControl ItemsSource="{Binding Buttons}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas Width="216" Height="326"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -69,15 +69,26 @@
                   <TextBlock Text="{Binding L[BottomDpi]}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,263,0,0" Classes="muted" FontSize="11"/>
                 </Grid></Viewbox>
               </Grid>
-              <ListBox Grid.Column="1" Name="ButtonList" ItemsSource="{Binding Buttons}" SelectedItem="{Binding SelectedButton}" Background="Transparent" Padding="0" IsEnabled="{Binding CanEdit}">
-                <ListBox.ItemTemplate><DataTemplate>
-                  <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6" ColumnSpacing="8" Margin="0,4,0,8">
-                    <TextBlock Text="{Binding Label}" Grid.ColumnSpan="2" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                    <ComboBox Grid.Row="1" ItemsSource="{Binding Options}" SelectedItem="{Binding Selected}" IsEnabled="{Binding Editable}" MinWidth="150"/>
-                    <Button Grid.Row="1" Grid.Column="1" Content="⌨" ToolTip.Tip="Keyboard combination" Click="CustomKeyClicked" IsEnabled="{Binding Editable}"/>
-                  </Grid>
-                </DataTemplate></ListBox.ItemTemplate>
-              </ListBox>
+              <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
+                <ComboBox Name="ButtonSelector" ItemsSource="{Binding Buttons}" SelectedItem="{Binding SelectedButton}" AutomationProperties.Name="{Binding L[Buttons]}">
+                  <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate>
+                </ComboBox>
+                <StackPanel Grid.Row="1" Spacing="4">
+                  <TextBlock Text="{Binding L[CurrentAction]}" Classes="muted"/>
+                  <TextBlock Text="{Binding ButtonAssignment.CurrentAction.Label}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" Name="CurrentAssignment"/>
+                  <TextBlock Text="{Binding L[AssignmentDraftHint]}" TextWrapping="Wrap" Classes="muted" FontSize="11"/>
+                  <TextBlock Text="{Binding L[ProtectedClickHint]}" TextWrapping="Wrap" Foreground="#9B4D13" IsVisible="{Binding ButtonAssignment.PrimaryProtected}"/>
+                </StackPanel>
+                <Grid Grid.Row="2" ColumnDefinitions="*,130" ColumnSpacing="8" IsEnabled="{Binding ButtonAssignment.CanAssign}">
+                  <TextBox Text="{Binding ButtonAssignment.Search}" PlaceholderText="{Binding L[FindAction]}" AutomationProperties.Name="{Binding L[FindAction]}"/>
+                  <ComboBox Grid.Column="1" Name="ActionGroup" ItemsSource="{Binding ButtonAssignment.Groups}" SelectedItem="{Binding ButtonAssignment.SelectedGroup, Mode=OneWay}" SelectionChanged="ActionGroupSelected"/>
+                </Grid>
+                <ListBox Grid.Row="3" Name="ActionList" ItemsSource="{Binding ButtonAssignment.Options}" SelectedItem="{Binding ButtonAssignment.CurrentAction, Mode=OneWay}" SelectionChanged="ActionSelected" IsEnabled="{Binding ButtonAssignment.CanAssign}" AutomationProperties.Name="{Binding L[ActionsAll]}"/>
+                <WrapPanel Grid.Row="4">
+                  <Button Content="{Binding $parent[Window].DataContext.L[Custom]}" DataContext="{Binding SelectedButton}" Click="CustomKeyClicked" IsEnabled="{Binding Editable}" Margin="0,0,8,4"/>
+                  <Button Content="{Binding L[OpenMacroLibrary]}" Click="OpenMacrosClicked" Margin="0,0,0,4"/>
+                </WrapPanel>
+              </Grid>
             </Grid>
           </Grid>
         </TabItem>
@@ -120,7 +131,7 @@
         <StackPanel Spacing="4" VerticalAlignment="Center"><TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis"/><ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}" Height="3"/><TextBlock Text="{Binding DirtyText}" FontSize="11" Classes="muted"/></StackPanel>
         <Button Grid.Column="1" Content="{Binding L[Cancel]}" Click="CancelClicked" IsVisible="{Binding CanCancel}"/>
         <Button Grid.Column="2" Name="HardwareUndo" Content="{Binding L[Undo]}" Click="UndoClicked" IsEnabled="{Binding CanUndo}"/>
-        <Button Grid.Column="3" Name="HardwareApply" Content="{Binding L[Apply]}" Classes="primary" Click="ApplyClicked" IsEnabled="{Binding CanWrite}"/>
+        <Button Grid.Column="3" Name="HardwareApply" Content="{Binding SaveTargetLabel}" Classes="primary" Click="ApplyClicked" IsEnabled="{Binding CanSaveToSlot}"/>
       </Grid>
     </Border>
   </Grid>

@@ -14,11 +14,14 @@ public sealed record LocalPreset(int SchemaVersion, string Id, string Name, stri
 public sealed class LocalAssets(string root)
 {
     private readonly object fileGate = new();
-    private static readonly string[] GpwControls = ["left", "right", "wheel", "left-rear", "left-front", "underside", "right-rear", "right-front"];
+    private static string[] Controls(string modelId) => DeviceCatalog.Load().Rules.FirstOrDefault(r => r.Id == modelId)?.Controls.Select(c => c.Id).ToArray() ?? [];
     private string DirectoryPath => Path.Combine(root, "presets");
-    public static LocalPreset FromProfile(string name, string modelId, MouseProfile profile) => new(1, Guid.NewGuid().ToString("N"), name, modelId,
-        profile.Rate, (int[])profile.Dpi.Clone(), profile.DefaultIndex, profile.ShiftIndex,
-        profile.Bindings.Select((b, i) => new PresetBinding(modelId == "g-pro-wireless" && i < GpwControls.Length ? GpwControls[i] : "unmapped-" + i, (byte[])b.Clone())).ToArray());
+    public static LocalPreset FromProfile(string name, string modelId, MouseProfile profile)
+    {
+        var controls = Controls(modelId);
+        return new(1, Guid.NewGuid().ToString("N"), name, modelId, profile.Rate, (int[])profile.Dpi.Clone(), profile.DefaultIndex, profile.ShiftIndex,
+            profile.Bindings.Select((b, i) => new PresetBinding(controls.Length == profile.Bindings.Length ? controls[i] : "unmapped-" + i, (byte[])b.Clone())).ToArray());
+    }
     public static void Validate(LocalPreset preset)
     {
         if (preset.SchemaVersion != 1 || !Guid.TryParseExact(preset.Id, "N", out _) || string.IsNullOrWhiteSpace(preset.Name) || preset.Name.Length > 120 ||
@@ -31,12 +34,13 @@ public sealed class LocalAssets(string root)
     public static MouseProfile Map(LocalPreset preset, string targetModel, MouseProfile target)
     {
         Validate(preset);
-        if (targetModel != "g-pro-wireless" || preset.ModelId != targetModel || target.Bindings.Length != 8)
+        var controls = Controls(targetModel);
+        if (preset.ModelId != targetModel || controls.Length == 0 || controls.Distinct().Count() != controls.Length || target.Bindings.Length != controls.Length)
             throw new InvalidDataException("No verified physical-control mapping for this preset and target. Nothing was imported.");
-        if (preset.Bindings.Length != GpwControls.Length || preset.Bindings.Any(b => !GpwControls.Contains(b.Control)))
+        if (preset.Bindings.Length != controls.Length || preset.Bindings.Any(b => !controls.Contains(b.Control)))
             throw new InvalidDataException("Preset contains incompatible controls; nothing was imported.");
         return new(preset.Rate, (int[])preset.Dpi.Clone(), preset.DefaultIndex, preset.ShiftIndex,
-            GpwControls.Select(c => (byte[])preset.Bindings.Single(b => b.Control == c).Action.Clone()).ToArray());
+            controls.Select(c => (byte[])preset.Bindings.Single(b => b.Control == c).Action.Clone()).ToArray());
     }
     public static LocalPreset Read(string path)
     {

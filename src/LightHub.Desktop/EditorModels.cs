@@ -14,10 +14,20 @@ public abstract class Observable : INotifyPropertyChanged
 public sealed class DpiStage(int index, int value) : Observable
 {
     public int Index { get; } = index;
+    public string DpiLabel => $"DPI {Index}";
     private bool enabled = value != 0;
     private decimal? dpi = value == 0 ? 800 : value;
     public bool Enabled { get => enabled; set => Set(ref enabled, value); }
     public decimal? Value { get => dpi; set => Set(ref dpi, value); }
+    private bool current;
+    private string stateLabel = "";
+    public bool IsCurrent => current;
+    public string StateLabel => stateLabel;
+    public void Describe(bool isCurrent, bool isDefault, Strings language)
+    {
+        Set(ref current, isCurrent, nameof(IsCurrent));
+        Set(ref stateLabel, string.Join(" · ", new[] { isCurrent ? language["ReadStage"] : "", isDefault ? language["DefaultStage"] : "" }.Where(s => s.Length != 0)), nameof(StateLabel));
+    }
 }
 public sealed record BindingOption(string Label, byte[] Bytes)
 {
@@ -46,19 +56,16 @@ public sealed class ButtonEditor : Observable
     public System.Collections.ObjectModel.ObservableCollection<BindingOption> Options { get; }
     private BindingOption selected;
     public BindingOption Selected { get => selected; set => Set(ref selected, value); }
-    public ButtonEditor(int number, byte[] raw, Strings l, bool gpwLayout = false)
+    public ButtonEditor(int number, byte[] raw, Strings l, DeviceControl? control = null)
     {
         Number = number;
-        Position = gpwLayout ? l[GpwPositions[number - 1]] : l["Button"] + " " + number;
-        Label = gpwLayout ? number + " · " + Position : Position;
-        if (gpwLayout) (MapX, MapY) = GpwCoordinates[number - 1];
+        Position = control is not null ? l[control.LabelKey] : l["Button"] + " " + number;
+        Label = control is not null ? number + " · " + Position : Position;
+        if (control is not null) (MapX, MapY) = (control.X, control.Y);
         Editable = number != 1; Options = new(BindingOption.All(l));
         selected = Options.FirstOrDefault(b => b.Bytes.SequenceEqual(raw)) ?? new("Raw · " + Convert.ToHexString(raw), raw);
         if (!Options.Contains(selected)) Options.Insert(0, selected);
     }
-    // Physical locations use Piper's GPW button IDs (zero-based), not the stored actions.
-    private static readonly string[] GpwPositions = ["LeftButton", "RightButton", "WheelButton", "LeftRear", "LeftFront", "BottomDpi", "RightRear", "RightFront"];
-    private static readonly (double X, double Y)[] GpwCoordinates = [(60, 52), (124, 52), (92, 88), (18, 156), (18, 121), (92, 286), (166, 156), (166, 121)];
 }
 public sealed record ProfileItem(int Sector, string Label) { public override string ToString() => Label; }
 public sealed record BackupItem(StoredBackup Backup, Strings L)

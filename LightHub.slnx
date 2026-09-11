@@ -10,4 +10,7 @@
     <Project Path="tests/LightHub.LockProbe/LightHub.LockProbe.csproj" />
     <Project Path="tests/LightHub.Tests/LightHub.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/LightHub.HardwareProbe/LightHub.HardwareProbe.csproj" />
+  </Folder>
 </Solution>

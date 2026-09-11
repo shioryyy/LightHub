@@ -52,7 +52,9 @@ public sealed class CoreTests
         Assert.False(catalog.Evaluate(s.Identity, s.Layout, "linux").CanWrite);
         Assert.False(catalog.Evaluate(s.Identity with { ProductIds = ["FFFF"] }, s.Layout, "windows").CanWrite);
         Assert.False(catalog.Evaluate(s.Identity with { Name = "G PRO Wireless", DeviceType = 1 }, s.Layout, "windows").CanWrite);
-        Assert.False(catalog.Evaluate(s.Identity, DemoData.Create(3).Layout, "windows").CanWrite);
+        Assert.False(catalog.Evaluate(s.Identity, DemoData.Create(3).Layout, "windows", "C539:receiver").CanWrite);
+        var displayOnly = new DeviceCatalog(catalog.Rules.Select(rule => rule with { VerifiedOperations = [] }));
+        Assert.False(displayOnly.Evaluate(s.Identity, s.Layout, "windows", "C539:receiver").CanWrite);
     }
     [Fact]
     public void DpiRangeAndDiscreteListsAreDifferent()

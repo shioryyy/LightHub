@@ -4,6 +4,7 @@ using System.Text.Json;
 namespace LightHub.Core;
 
 public sealed record DeviceIdentity(string Name, string UnitId, string[] ProductIds, string Firmware, int DeviceType);
+public sealed record DeviceControl(string Id, string LabelKey, double X, double Y);
 public sealed record MemoryLayout(string Raw, int MemoryModel, int ProfileFormat, int MacroFormat, int ProfileCount, int ButtonCount, int SectorCount, int SectorSize)
 {
     public static MemoryLayout Parse(byte[] raw)
@@ -32,13 +33,17 @@ public sealed record DeviceRule
     public string[] FirmwareWithEvidence { get; init; } = [];
     public string[] ConnectionsWithEvidence { get; init; } = [];
     public string[] VerifiedOperations { get; init; } = [];
+    // Display/mapping metadata never grants protocol permissions.
+    public string ButtonMap { get; init; } = "";
+    public DeviceControl[] Controls { get; init; } = [];
 }
-public enum DeviceOperation { ReadProfile, RuntimeDpi, WriteProfile, Activate, RestoreProfile, WriteMacro, WriteGShift, WriteLighting }
+public enum DeviceOperation { ReadProfile, RuntimeDpi, WriteProfile, Activate, RestoreProfile, WriteMacro, WriteGShift, WriteLighting, EnableProfile }
 public sealed record SupportDecision(bool CanWrite, string ModelId, string Reason);
 public sealed class DeviceCatalog
 {
     public IReadOnlyList<DeviceRule> Rules { get; }
     public DeviceCatalog(IEnumerable<DeviceRule> rules) => Rules = rules.ToArray();
+    public DeviceRule? FindRule(DeviceIdentity identity) => Rules.FirstOrDefault(r => r.ProductIds.Intersect(identity.ProductIds, StringComparer.OrdinalIgnoreCase).Any());
     public static DeviceCatalog Load()
     {
         using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("LightHub.Core.devices.json")!;
@@ -48,7 +53,7 @@ public sealed class DeviceCatalog
         => EvaluateOperation(identity, layout, platform, connection, DeviceOperation.WriteProfile);
     public SupportDecision EvaluateOperation(DeviceIdentity identity, MemoryLayout layout, string platform, string connection, DeviceOperation operation)
     {
-        var rule = Rules.FirstOrDefault(r => r.ProductIds.Intersect(identity.ProductIds, StringComparer.OrdinalIgnoreCase).Any());
+        var rule = FindRule(identity);
         if (rule is null) return new(false, "unknown", "Unverified model: diagnostic access only.");
         if (identity.DeviceType != 3) return new(false, rule.Id, "This driver supports mouse profiles only.");
         if (string.IsNullOrWhiteSpace(identity.UnitId) || identity.UnitId == "00000000") return new(false, rule.Id, "A stable physical device identity is required.");

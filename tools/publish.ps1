@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 [xml]$properties = Get-Content (Join-Path $root 'Directory.Build.props') -Raw
 $version = [string]$properties.Project.PropertyGroup.Version
+. (Join-Path $PSScriptRoot 'source-identity.ps1')
 Push-Location $root
 try {
     & $Dotnet restore --locked-mode
@@ -32,7 +33,8 @@ try {
     $sourceEntries += Get-ChildItem $root -File -Force | Where-Object { $_.Extension -notin @('.lhbackup','.lhmacro','.lhdraft','.lhpreset','.log','.zip') }
     $sourceManifest = $sourceEntries | Sort-Object FullName | ForEach-Object { [ordered]@{ path=$_.FullName.Substring($root.Length+1).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant() } }
     [IO.File]::WriteAllText((Join-Path $stage 'SOURCE-MANIFEST.json'),(ConvertTo-Json -InputObject @($sourceManifest) -Depth 4),[Text.UTF8Encoding]::new($false))
-    $metadata = [ordered]@{ version=$version; runtime=$Runtime; quality='engineering-preview'; signed=$false; builtUtc=[DateTimeOffset]::UtcNow.ToString('O'); sourceManifestSha256=(Get-FileHash (Join-Path $stage 'SOURCE-MANIFEST.json')).Hash.ToLowerInvariant() }
+    $identity = Get-LightHubSourceIdentity $root
+    $metadata = [ordered]@{ version=$version; runtime=$Runtime; quality='engineering-preview'; signed=$false; sourceCommit=$identity.sourceCommit; sourceDirty=$identity.sourceDirty; sourceKind=$identity.sourceKind; builtUtc=[DateTimeOffset]::UtcNow.ToString('O'); sourceManifestSha256=(Get-FileHash (Join-Path $stage 'SOURCE-MANIFEST.json')).Hash.ToLowerInvariant() }
     [IO.File]::WriteAllText((Join-Path $stage 'BUILD-METADATA.json'),($metadata | ConvertTo-Json),[Text.UTF8Encoding]::new($false))
     $entries = Get-ChildItem $stage -Recurse -File | Where-Object Name -ne 'SHA256SUMS.txt' | Sort-Object FullName | ForEach-Object {
         '{0}  {1}' -f (Get-FileHash $_.FullName).Hash.ToLowerInvariant(),$_.FullName.Substring($stage.Length+1).Replace('\','/')

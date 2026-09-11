@@ -1,6 +1,111 @@
 [
-  {"id":"g-pro-wireless","name":"G PRO Wireless","productIds":["4079","C088"],"platformsWithWriteEvidence":["windows"],"firmwareWithEvidence":["BOT 74.02.0026"],"connectionsWithEvidence":["C539:receiver"],"verifiedOperations":["RuntimeDpi","WriteProfile","RestoreProfile"],"memoryModel":1,"profileFormat":3,"macroFormat":1,"profiles":5,"buttons":8,"sectorSize":255,"sectorCount":16,"evidence":"docs/validation/gpw1-windows.md"},
-  {"id":"g305","name":"G305 / G304","productIds":["4074"],"platformsWithWriteEvidence":[],"evidence":"Identification only; no LightHub write evidence"},
-  {"id":"g-pro-x-superlight","name":"G PRO X Superlight","productIds":["4093","C094"],"platformsWithWriteEvidence":[],"evidence":"Identification only; no LightHub write evidence"},
-  {"id":"g502-hero","name":"G502 HERO","productIds":["C08B"],"platformsWithWriteEvidence":[],"evidence":"Identification only; no LightHub write evidence"}
+  {
+    "id": "g-pro-wireless",
+    "name": "G PRO Wireless",
+    "productIds": [
+      "4079",
+      "C088"
+    ],
+    "platformsWithWriteEvidence": [
+      "windows"
+    ],
+    "firmwareWithEvidence": [
+      "BOT 74.02.0026"
+    ],
+    "connectionsWithEvidence": [
+      "C539:receiver"
+    ],
+    "verifiedOperations": [
+      "RuntimeDpi",
+      "WriteProfile",
+      "RestoreProfile"
+    ],
+    "memoryModel": 1,
+    "profileFormat": 3,
+    "macroFormat": 1,
+    "profiles": 5,
+    "buttons": 8,
+    "sectorSize": 255,
+    "sectorCount": 16,
+    "evidence": "docs/validation/gpw1-windows.md",
+    "buttonMap": "gpw-top",
+    "controls": [
+      {
+        "id": "left",
+        "labelKey": "LeftButton",
+        "x": 60,
+        "y": 52
+      },
+      {
+        "id": "right",
+        "labelKey": "RightButton",
+        "x": 124,
+        "y": 52
+      },
+      {
+        "id": "wheel",
+        "labelKey": "WheelButton",
+        "x": 92,
+        "y": 88
+      },
+      {
+        "id": "left-rear",
+        "labelKey": "LeftRear",
+        "x": 18,
+        "y": 156
+      },
+      {
+        "id": "left-front",
+        "labelKey": "LeftFront",
+        "x": 18,
+        "y": 121
+      },
+      {
+        "id": "underside",
+        "labelKey": "BottomDpi",
+        "x": 92,
+        "y": 286
+      },
+      {
+        "id": "right-rear",
+        "labelKey": "RightRear",
+        "x": 166,
+        "y": 156
+      },
+      {
+        "id": "right-front",
+        "labelKey": "RightFront",
+        "x": 166,
+        "y": 121
+      }
+    ]
+  },
+  {
+    "id": "g305",
+    "name": "G305 / G304",
+    "productIds": [
+      "4074"
+    ],
+    "platformsWithWriteEvidence": [],
+    "evidence": "Identification only; no LightHub write evidence"
+  },
+  {
+    "id": "g-pro-x-superlight",
+    "name": "G PRO X Superlight",
+    "productIds": [
+      "4093",
+      "C094"
+    ],
+    "platformsWithWriteEvidence": [],
+    "evidence": "Identification only; no LightHub write evidence"
+  },
+  {
+    "id": "g502-hero",
+    "name": "G502 HERO",
+    "productIds": [
+      "C08B"
+    ],
+    "platformsWithWriteEvidence": [],
+    "evidence": "Identification only; no LightHub write evidence"
+  }
 ]

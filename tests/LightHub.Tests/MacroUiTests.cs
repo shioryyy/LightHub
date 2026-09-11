@@ -114,8 +114,10 @@ public sealed partial class UiTests
             Dispatcher.UIThread.RunJobs();
             var view = window.FindControl<MacroEditorView>("MacroEditor")!;
             view.FindControl<Button>("NewMacro")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Assert.False(view.FindControl<Grid>("MacroStepFields")!.IsVisible);
             view.FindControl<TextBox>("MacroName")!.Text = chinese ? "复制选中文本" : "Copy selection";
             view.FindControl<Button>("AddMacroDown")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Assert.True(view.FindControl<Grid>("MacroStepFields")!.IsVisible);
             Assert.False(view.FindControl<Button>("SaveMacro")!.IsEnabled);
             window.Model.Macros.SelectedStep!.Key = MacroKey.All.Single(k => k.Usage == 0xe0);
             window.Model.Macros.Add("down"); window.Model.Macros.SelectedStep!.Key = MacroKey.All.Single(k => k.Usage == 6);

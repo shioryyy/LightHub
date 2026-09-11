@@ -15,7 +15,9 @@ for ($sample = 0; $sample -lt $Samples; $sample++) {
         $process.Refresh()
         $measurements += [pscustomobject]@{ sample=$sample+1; inputIdleMs=$timer.Elapsed.TotalMilliseconds; privateMiB=$process.PrivateMemorySize64/1MB; cpuPercent=100*($process.TotalProcessorTime.TotalSeconds-$before)/$IdleSeconds/[Environment]::ProcessorCount }
     } finally {
-        if (-not $process.HasExited) { [void]$process.CloseMainWindow(); if (-not $process.WaitForExit(10000)) { $process.Kill() } }
+        # Disposable demo processes only: cleanup is process termination, not UI
+        # automation and not evidence of graceful shutdown (verified separately).
+        if (-not $process.HasExited) { $process.Kill(); $process.WaitForExit() }
         $process.Dispose()
     }
 }

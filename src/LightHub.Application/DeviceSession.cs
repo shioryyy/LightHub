@@ -55,15 +55,11 @@ public sealed class DeviceSession(IDeviceAccess access, TransactionStore store) 
             var desired = d.Edit(baseline, sector, profile, false, replacementStage);
             return Result(d, new TransactionEngine(store).ApplyVerified(d, baseline, desired, report).VerifiedSnapshot);
         }));
-    public Task<DeviceRead> Activate(DeviceSnapshot baseline, int sector, Action<string>? report = null)
+    public Task<DeviceRead> Activate(DeviceSnapshot baseline, int sector, Action<string>? report = null, bool enableDisabled = false)
         => Run(() => Connected(d =>
         {
-            ReadyToChange(baseline); d.EnsureOperation(DeviceOperation.Activate, baseline);
-            var entry = baseline.Directory().Single(e => e.Sector == sector);
-            if (!entry.Enabled) throw new DeviceException(FailureKind.Unsupported, "Enabling disabled directory entries is not a validated operation.");
-            var profile = MouseProfile.Decode(baseline.Sectors[sector], baseline.Layout);
-            var desired = baseline.Copy() with { Mode = 1, ActiveSector = sector, DpiIndex = profile.DefaultIndex, SensorDpi = profile.Dpi[profile.DefaultIndex] };
-            return Result(d, new TransactionEngine(store).ApplyVerified(d, baseline, desired, report).VerifiedSnapshot);
+            ReadyToChange(baseline);
+            return Result(d, SlotActivation.Execute(d, store, baseline, sector, enableDisabled, report).VerifiedSnapshot);
         }));
     public Task<DeviceRead> Restore(string path, Action<string>? report = null) => Run(() => Connected(d =>
     {

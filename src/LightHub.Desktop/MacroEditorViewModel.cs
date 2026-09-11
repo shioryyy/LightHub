@@ -73,6 +73,7 @@ public sealed class MacroEditorViewModel : Observable
     public bool Editable => Idle && HasEditor;
     public bool CanAdd => Editable && Steps.Count < MacroValidator.MaxEvents;
     public bool CanChangeStep => Editable && SelectedStep is not null;
+    public bool HasSelectedStep => SelectedStep is not null;
     public bool CanMoveUp => CanChangeStep && Steps.IndexOf(SelectedStep!) > 0;
     public bool CanMoveDown => CanChangeStep && Steps.IndexOf(SelectedStep!) < Steps.Count - 1;
     public bool CanCopyStep => CanAdd && SelectedStep is { } s && (!s.IsDelay || s.Delay is >= 1 and <= 10000 && decimal.Truncate(s.Delay.Value) == s.Delay);
@@ -229,6 +230,6 @@ public sealed class MacroEditorViewModel : Observable
     }
     private void Notify()
     {
-        foreach (string property in new[] { nameof(Dirty), nameof(Busy), nameof(Idle), nameof(HasEditor), nameof(Editable), nameof(CanAdd), nameof(CanChangeStep), nameof(CanMoveUp), nameof(CanMoveDown), nameof(CanCopyStep), nameof(Valid), nameof(CanSave), nameof(CanSaveDraft), nameof(CanDuplicate), nameof(CanExport), nameof(CanRecycle), nameof(EditorState), nameof(Summary) }) Changed(property);
+        foreach (string property in new[] { nameof(Dirty), nameof(Busy), nameof(Idle), nameof(HasEditor), nameof(Editable), nameof(CanAdd), nameof(CanChangeStep), nameof(HasSelectedStep), nameof(CanMoveUp), nameof(CanMoveDown), nameof(CanCopyStep), nameof(Valid), nameof(CanSave), nameof(CanSaveDraft), nameof(CanDuplicate), nameof(CanExport), nameof(CanRecycle), nameof(EditorState), nameof(Summary) }) Changed(property);
     }
 }

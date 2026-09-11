@@ -8,6 +8,8 @@ namespace LightHub.Desktop;
 
 public static class Program
 {
+    public static string VersionText => typeof(Program).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "development";
     public static bool Demo { get; private set; }
     [STAThread]
     public static int Main(string[] args)

@@ -16,9 +16,21 @@ public sealed class MacroTests : IDisposable
     {
         try { Directory.CreateSymbolicLink(link, target); }
         catch (UnauthorizedAccessException) when (OperatingSystem.IsWindows())
-        { Assert.Skip("Creating Windows symbolic links requires developer mode or the symlink privilege."); }
+        { CreateJunction(link, target); }
         catch (IOException ex) when (OperatingSystem.IsWindows() && (ex.HResult & 0xffff) == 1314)
-        { Assert.Skip("Creating Windows symbolic links requires developer mode or the symlink privilege."); }
+        { CreateJunction(link, target); }
+    }
+    private static void CreateJunction(string link, string target)
+    {
+        // Junctions exercise the same reparse-point boundary without requiring
+        // developer mode. Only this test's newly-created temporary paths are used.
+        var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"))
+        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
+        start.ArgumentList.Add("-NoProfile"); start.ArgumentList.Add("-NonInteractive"); start.ArgumentList.Add("-Command");
+        start.ArgumentList.Add("$ErrorActionPreference='Stop'; New-Item -ItemType Junction -Path '" + link.Replace("'", "''") + "' -Target '" + target.Replace("'", "''") + "' | Out-Null");
+        using var process = System.Diagnostics.Process.Start(start)!;
+        if (!process.WaitForExit(10000)) { process.Kill(true); throw new IOException("Junction fixture creation timed out."); }
+        Assert.True(process.ExitCode == 0, process.StandardError.ReadToEnd());
     }
 
     [Fact]

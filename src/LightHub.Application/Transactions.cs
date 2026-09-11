@@ -60,6 +60,7 @@ public sealed class TransactionEngine(TransactionStore store)
         if (desired.SensorDpi is { } sensorDpi && !device.DpiCaps!.Contains(sensorDpi)) throw new InvalidDataException("Unsupported target sensor DPI.");
         if (baseline.Mode != desired.Mode || baseline.ActiveSector != desired.ActiveSector) device.EnsureOperation(DeviceOperation.Activate, baseline);
         EnsureEditScope(baseline, desired);
+        if (SlotActivation.DirectoryFlagsDiffer(baseline, desired)) device.EnsureOperation(DeviceOperation.EnableProfile, baseline);
         foreach (var entry in desired.Directory().Where(e => !baseline.Sectors[e.Sector].SequenceEqual(desired.Sectors[e.Sector])))
         {
             var profile = MouseProfile.Decode(desired.Sectors[entry.Sector], desired.Layout);
@@ -68,7 +69,7 @@ public sealed class TransactionEngine(TransactionStore store)
         report?.Invoke("Checking for conflicts");
         var current = device.ReadSnapshot(cancel);
         if (!current.SameState(baseline) || (baseline.SensorDpi is not null && current.SensorDpi != baseline.SensorDpi)) throw new DeviceException(FailureKind.Conflict, "Device memory or active state changed after reading. Refresh first.");
-        if (current.SameState(desired)) return new("", current);
+        if (current.SameState(desired) && (desired.SensorDpi is null || current.SensorDpi == desired.SensorDpi)) return new("", current);
         cancel.ThrowIfCancellationRequested(); string backup = store.SaveBackup(current);
         return Commit(device, current, desired, backup, backup, false, report);
     }
@@ -80,6 +81,9 @@ public sealed class TransactionEngine(TransactionStore store)
         var current = device.ReadSnapshot(cancel, allowCorrupt: true);
         if (current.Identity.UnitId != desired.Identity.UnitId) throw new DeviceException(FailureKind.Identity, "Device identity changed during recovery.");
         if (current.Mode != desired.Mode || current.ActiveSector != desired.ActiveSector) device.EnsureOperation(DeviceOperation.Activate, current);
+        // Restoring an enable/disable flag needs the same separately verified
+        // directory path; a profile-only restore grant is not sufficient.
+        if (SlotActivation.DirectoryFlagsDiffer(current, desired)) device.EnsureOperation(DeviceOperation.EnableProfile, current);
         // Recovery of macro / unknown data formats has not been validated; never write those sectors.
         var permitted = desired.Directory().Select(e => e.Sector).Append(0).ToHashSet();
         if (current.Sectors.Any(x => !permitted.Contains(x.Key) && !x.Value.SequenceEqual(desired.Sectors[x.Key]))) throw new DeviceException(FailureKind.Unsupported, "Macro or non-profile sectors differ. Their restoration requires a validated driver.");
