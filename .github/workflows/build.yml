@@ -47,7 +47,7 @@ jobs:
           }
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.rid }}
           path: artifacts/test-results/*.trx
@@ -61,7 +61,7 @@ jobs:
           [xml]$props = Get-Content Directory.Build.props -Raw
           $version = [string]$props.Project.PropertyGroup.Version
           ./tools/verify-package.ps1 -Directory "dist/LightHub-$version-${{ matrix.rid }}" -Runtime '${{ matrix.rid }}'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: LightHub-${{ matrix.rid }}
           path: |
@@ -94,7 +94,7 @@ jobs:
             dotnet test --no-restore -c Release --logger trx --results-directory ../../source-test-results
             if ($LASTEXITCODE -ne 0) { throw 'Source tests failed' }
           } finally { Pop-Location }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: LightHub-source-and-test-results
