@@ -77,11 +77,21 @@ battery 4122 mV), alpha.2 candidate source 701802e, Windows 10.0.26200, tester p
 - `dpi-smoke` on a cold connection: current DPI changed, verified and restored in
   465 ms including session open; onboard memory and active state unchanged.
 
-Remaining for this unit: sleep/wake and receiver-reconnect behavior with the desktop
-app open (read-only reconnect, drafts retained, stale writes refused), USB wired mode,
-multiple simultaneous receivers, and UI hotplug. Production `Activate`/`EnableProfile`
-permissions stay closed pending the independent review gate; the probe's temporary
-permission never leaves its own process.
+- Sleep/wake, receiver reconnect and power-cycle observations with the desktop app
+  open (alpha.2 build, tester present): after OS sleep/wake the app showed no error,
+  no forced reconnect and the unsaved draft change was retained. Unplugging the C539
+  receiver raised the "device connection changed; refresh; unsaved edits are retained"
+  state, which persisted after replug until an explicit refresh — stale writes stayed
+  blocked. Power-cycling the mouse itself produced no UI change: the receiver's HID
+  interfaces stay enumerated so the topology watcher does not fire, and the idle app
+  intentionally does not poll the device; the next action still revalidates state and
+  refuses stale writes. This behavior is identical to the alpha.1 desktop code and is
+  recorded as a known characteristic, not a regression.
+
+Remaining for this unit: USB wired mode and multiple simultaneous receivers remain
+unverified and are recorded as such in the release checklist. Production
+`Activate`/`EnableProfile` permissions stay closed pending the independent review
+gate; the probe's temporary permission never leaves its own process.
 
 ### Unreleased interaction/performance iteration, 2026-09-07
 
