@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -10,7 +11,7 @@ using LightHub.Hid;
 // tuple that already has ordinary profile write/recovery evidence.
 if (args.Length == 0)
 {
-    Console.WriteLine("Hardware validation (not a compatibility grant)\n  plan ENDPOINT SECTOR\n  activation ENDPOINT SECTOR --execute-and-restore [--hold-seconds 0..120]\n  restore ENDPOINT BACKUP --execute\nRun from the repository root. Do not force-terminate a hardware experiment.");
+    Console.WriteLine("Hardware validation (not a compatibility grant)\n  plan ENDPOINT SECTOR\n  activation ENDPOINT SECTOR --execute-and-restore [--hold-seconds 0..120]\n  restore ENDPOINT BACKUP --execute\n  warm-dpi ENDPOINT [--cycles 1..40]\nRun from the repository root. Do not force-terminate a hardware experiment.");
     return 0;
 }
 
@@ -20,10 +21,14 @@ try
     bool planOnly = args[0] == "plan" && args.Length == 3;
     bool activation = args[0] == "activation" && args.Length is 4 or 6 && args[3] == "--execute-and-restore";
     bool restore = args[0] == "restore" && args.Length == 4 && args[3] == "--execute";
-    if (!planOnly && !activation && !restore) throw new ArgumentException("Unknown command. No device operation was started.");
+    bool warmDpi = args[0] == "warm-dpi" && args.Length is 2 or 4;
+    if (!planOnly && !activation && !restore && !warmDpi) throw new ArgumentException("Unknown command. No device operation was started.");
     int holdSeconds = 0;
     if (activation && args.Length == 6 && (args[4] != "--hold-seconds" || !int.TryParse(args[5], out holdSeconds) || holdSeconds is < 0 or > 120))
         throw new ArgumentException("Hold time must be 0..120 seconds.");
+    int cycles = 20;
+    if (warmDpi && args.Length == 4 && (args[2] != "--cycles" || !int.TryParse(args[3], out cycles) || cycles is < 1 or > 40))
+        throw new ArgumentException("Cycle count must be 1..40.");
     if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("This engineering procedure is limited to Windows GPW1.");
     var scan = HidDiscovery.Scan();
     foreach (var warning in scan.Warnings) Console.Error.WriteLine(warning);
@@ -57,6 +62,41 @@ try
         : r));
     using var validated = new OnboardDevice(new HidTransport(endpoint.Channels, endpoint.Slot), catalog, "windows", "C539:receiver");
     Hardware.CheckCompetingSoftware(); validated.EnsureWritable(baseline);
+    if (warmDpi)
+    {
+        if (baseline.SensorDpi is not { } initialDpi) throw new InvalidDataException("Current DPI is unknown.");
+        int testDpi = initialDpi + caps.Step;
+        if (!caps.Contains(testDpi)) testDpi = initialDpi - caps.Step;
+        if (!caps.Contains(testDpi) || testDpi == initialDpi) throw new InvalidOperationException("No safe DPI step away from the current value.");
+        var timer = new Stopwatch(); var samples = new List<double>(cycles);
+        Console.WriteLine($"Temporary DPI {initialDpi} <-> {testDpi}, {cycles} bounded set/restore cycles. Do not power off.");
+        try
+        {
+            for (int i = 0; i < cycles; i++)
+            {
+                timer.Restart();
+                validated.SetCurrentDpi(baseline, testDpi);
+                validated.SetCurrentDpi(baseline, initialDpi);
+                timer.Stop();
+                samples.Add(timer.Elapsed.TotalMilliseconds);
+                Console.WriteLine($"cycle {i + 1}/{cycles}: {timer.Elapsed.TotalMilliseconds:F0} ms");
+            }
+        }
+        finally
+        {
+            if (validated.ReadTelemetry().Dpi != initialDpi) throw new IOException("Final current DPI differs from the baseline; restore was not confirmed.");
+        }
+        double p95 = samples.Order().ElementAt((int)Math.Ceiling(0.95 * samples.Count) - 1);
+        string directory = Path.GetFullPath("artifacts/hardware-validation"); Directory.CreateDirectory(directory);
+        string result = Path.Combine(directory, "warm-dpi-" + Guid.NewGuid().ToString("N") + ".json");
+        AtomicFile.Write(result, JsonSerializer.Serialize(new { schemaVersion = 1, procedure = "warm-dpi", baseline.Identity.Name, baseline.Identity.Firmware,
+            connection = "C539:receiver", platform = Environment.OSVersion.VersionString, cycles, initialDpi, testDpi,
+            samples, p95Ms = p95, productionPermissionGranted = false,
+            assemblyHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Assembly.GetExecutingAssembly().Location))) }, Json.Options));
+        Console.WriteLine($"p95 {p95:F0} ms over {cycles} warm cycles. Read-back evidence: {result}");
+        Console.WriteLine("PASS: warm temporary DPI set/restore cycles confirmed; no flash transaction or onboard change.");
+        return 0;
+    }
     if (restore)
     {
         var desired = BackupFile.Load(args[2]);
