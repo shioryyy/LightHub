@@ -49,6 +49,40 @@ result does not extend write support to other models or platforms.
 
 ## Regression procedure and remaining checks
 
+### Slot activation and lifecycle evidence, 2026-09-12
+
+Same unit (BOT 74.02.0026, C539 receiver slot 1, mode 1, active sector 1, 1600 DPI,
+battery 4122 mV), alpha.2 candidate source 701802e, Windows 10.0.26200, tester present.
+
+- Bounded activation via the engineering probe: preflight `plan` then
+  `activation --execute-and-restore --hold-seconds 60`. The probe wrote only the
+  directory enable flag and CRC for slot 2 (default 800 DPI), switched the active
+  slot, verified by full read-back, held 60 seconds, then restored sector 1 /
+  1600 DPI and the original directory. Read-back evidence:
+  `artifacts/hardware-validation/activation-838f63e91d2f4c48a9baaee966e58094.json`
+  (private recovery backup path recorded there; `physicalInputVerified` stays false
+  in the file because the tester's observation is recorded here instead).
+- Tester observation during the hold: movement speed was clearly slower (1600 → 800),
+  left/right/side buttons all behaved normally, no other anomaly. This is the physical
+  input evidence for this bounded activation path.
+- Lifecycle persistence: a semantic preset (derived from the baseline backup with the
+  production codec, scratch tool under `artifacts/lifecycle/`) was saved to disabled
+  slot 5 through the ordinary CLI save path — DPI stage 1 400 → 450, rate 1000 → 500,
+  bindings unchanged. The tester then performed a normal power off/on. A fresh-process
+  backup confirmed the written config persisted (sector 5 decoded to 450/500) while
+  every other sector, mode, active slot and sensor DPI matched the baseline.
+- The baseline was then restored through the ordinary CLI restore path with fresh HID
+  handles; a further fresh-process backup verified sector 5 back at 400/1000, no other
+  sector differences and identical active state.
+- `dpi-smoke` on a cold connection: current DPI changed, verified and restored in
+  465 ms including session open; onboard memory and active state unchanged.
+
+Remaining for this unit: sleep/wake and receiver-reconnect behavior with the desktop
+app open (read-only reconnect, drafts retained, stale writes refused), USB wired mode,
+multiple simultaneous receivers, and UI hotplug. Production `Activate`/`EnableProfile`
+permissions stay closed pending the independent review gate; the probe's temporary
+permission never leaves its own process.
+
 ### Unreleased interaction/performance iteration, 2026-09-07
 
 - The updated transport and transaction engine passed another inactive-sector smoke:
