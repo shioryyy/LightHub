@@ -24,6 +24,7 @@
 - Use a shared headless test dispatcher for Skia's render loop; retain isolated test data/windows.
 - Fix nullable battery-voltage formatting; unavailable/zero voltage is shown as unknown.
 - Runtime values refresh after explicit actions; the idle UI does not poll HID.
+- Bind the status progress bar to the busy state so the idle window runs no animation.
 
 ### 0.3.0-alpha.1 engineering preview
 
