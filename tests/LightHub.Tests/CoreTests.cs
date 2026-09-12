@@ -232,7 +232,7 @@ public sealed class TransactionTests : IDisposable
 public sealed class FakeTransport : IReportTransport
 {
     public SortedDictionary<int, byte[]> Sectors; public int Mode = 1, Active = 1, Slot = 2, Chunks, Commits, FailChunk; public bool CorruptCommit, ChangeUntouchedSector;
-    public int CurrentDpi = 1600, DpiWrites; public bool IgnoreDpiWrite;
+    public int CurrentDpi = 1600, DpiWrites; public bool IgnoreDpiWrite; public int DpiReadBackFailures;
     public int BatteryVoltage = 3980, BatteryReads;
     public List<string> Mutations { get; } = [];
     public List<int> WriteSectors { get; } = []; private int writing, offset; private byte[] buffer = []; private readonly MemoryLayout layout;
@@ -243,7 +243,7 @@ public sealed class FakeTransport : IReportTransport
         if (feature == 0) { int id = Wire.Be(data); r[0] = (byte)(id switch { 5 => 3, 3 => 2, 0x8100 => 9, 0x2201 => 12, 0x8060 => 11, 0x1001 => 6, _ => 0 }); }
         else if (feature == 3) { byte[] name = Encoding.UTF8.GetBytes("G PRO Wireless"); if (function == 0) r[0] = (byte)name.Length; else if (function == 2) r[0] = 3; else name.AsSpan(data[0], Math.Min(16, name.Length - data[0])).CopyTo(r); }
         else if (feature == 2) { if (function == 0) { r[0] = 1; Convert.FromHexString("1234ABCD").CopyTo(r, 1); r[7] = 0x40; r[8] = 0x79; r[9] = 0xc0; r[10] = 0x88; } else { Encoding.ASCII.GetBytes("BOT").CopyTo(r, 1); r[4] = 0x74; r[5] = 2; r[7] = 0x26; } }
-        else if (feature == 12) { if (function == 1) { r[2] = 100; r[3] = 0xe0; r[4] = 50; r[5] = 0x64; } else if (function == 3) { DpiWrites++; if (!IgnoreDpiWrite) CurrentDpi = Wire.Be(data[1..]); } else { Wire.Be(CurrentDpi).CopyTo(r, 1); } }
+            else if (feature == 12) { if (function == 1) { r[2] = 100; r[3] = 0xe0; r[4] = 50; r[5] = 0x64; } else if (function == 3) { DpiWrites++; if (!IgnoreDpiWrite) CurrentDpi = Wire.Be(data[1..]); } else { int reported = CurrentDpi; if (DpiReadBackFailures > 0) { DpiReadBackFailures--; reported = CurrentDpi + 1; } Wire.Be(reported).CopyTo(r, 1); } }
         else if (feature == 11) r[0] = (byte)(function == 0 ? 0x8b : 1);
         else if (feature == 6) { BatteryReads++; Wire.Be(BatteryVoltage).CopyTo(r, 0); }
         else if (feature == 9) switch (function)

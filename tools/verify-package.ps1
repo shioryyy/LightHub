@@ -31,4 +31,53 @@ foreach ($file in $files | Where-Object Name -ne 'SHA256SUMS.txt') {
 }
 $archive = $packageRoot + $(if ($Runtime.StartsWith('win-')) { '.zip' } else { '.tar.gz' })
 if (-not (Test-Path -LiteralPath $archive -PathType Leaf) -or (Get-Item -LiteralPath $archive).Length -eq 0) { throw 'Package archive missing' }
-Write-Output "Verified $($listed.Count) package files; source $($metadata.sourceCommit), runtime $Runtime"
+
+# The distributed artifact is the archive itself, so its contents must match the
+# already-verified directory exactly: same relative paths, same bytes, nothing extra.
+$prefix = (Split-Path -Leaf $packageRoot) + '/'
+$expected = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+foreach ($file in $files) { $expected[[IO.Path]::GetRelativePath($packageRoot, $file.FullName).Replace('\','/')] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash }
+$seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+function Assert-ArchiveEntry([string]$RawName, [string]$Hash) {
+    $FullName = $RawName.Replace('\', '/')
+    if (-not $FullName.StartsWith($prefix, [StringComparison]::Ordinal)) { throw "Archive entry outside the package folder: $RawName" }
+    $relative = $FullName.Substring($prefix.Length)
+    if ($relative -match '(^|/)\.\.?(/|$)' -or -not $expected.ContainsKey($relative)) { throw "Archive entry is unsafe or not part of the verified directory: $relative" }
+    if (-not $seen.Add($relative)) { throw "Duplicate archive entry: $relative" }
+    if ($Hash -ne $expected[$relative]) { throw "Archive entry differs from the verified directory: $relative" }
+}
+if ($Runtime.StartsWith('win-')) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [IO.Compression.ZipFile]::OpenRead($archive)
+    try {
+        foreach ($entry in $zip.Entries) {
+            if ($entry.FullName.EndsWith('/') -or $entry.FullName.EndsWith('\')) { continue }
+            $sha = [Security.Cryptography.SHA256]::Create(); $stream = $entry.Open()
+            try { $hash = [Convert]::ToHexString($sha.ComputeHash($stream)) } finally { $stream.Dispose(); $sha.Dispose() }
+            Assert-ArchiveEntry $entry.FullName $hash
+        }
+    } finally { $zip.Dispose() }
+} else {
+    # .NET's TarReader mishandles PAX entry names, so extract with the platform tar
+    # tool and compare the extracted tree against the verified directory instead.
+    $temp = Join-Path ([IO.Path]::GetTempPath()) ("lhverify-" + [Guid]::NewGuid().ToString("N"))
+    try {
+        New-Item -ItemType Directory -Path $temp | Out-Null
+        $tarArgs = @('-xzf', $archive, '-C', $temp)
+        if ((tar --version) -match 'GNU tar') { $tarArgs += '--force-local' }
+        & tar @tarArgs
+        if ($LASTEXITCODE -ne 0) { throw 'Archive extraction failed' }
+        $roots = @(Get-ChildItem -LiteralPath $temp)
+        if ($roots.Count -ne 1 -or -not $roots[0].PSIsContainer -or $roots[0].Name -ne (Split-Path -Leaf $packageRoot)) { throw 'Archive root layout does not match the package folder' }
+        $root = $roots[0].FullName
+        foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File) {
+            $relative = [IO.Path]::GetRelativePath($root, $file.FullName).Replace('\','/')
+            if (-not $expected.ContainsKey($relative)) { throw "Archive entry is unsafe or not part of the verified directory: $relative" }
+            if (-not $seen.Add($relative)) { throw "Duplicate archive entry: $relative" }
+            if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash -ne $expected[$relative]) { throw "Archive entry differs from the verified directory: $relative" }
+        }
+    } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force } }
+}
+$missing = @($expected.Keys | Where-Object { -not $seen.Contains($_) })
+if ($missing.Count) { throw "Archive is missing verified package files: $($missing -join ', ')" }
+Write-Output "Verified $($listed.Count) package files and all archive entries; source $($metadata.sourceCommit), runtime $Runtime"

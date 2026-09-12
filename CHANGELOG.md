@@ -25,6 +25,9 @@
 - Fix nullable battery-voltage formatting; unavailable/zero voltage is shown as unknown.
 - Runtime values refresh after explicit actions; the idle UI does not poll HID.
 - Bind the status progress bar to the busy state so the idle window runs no animation.
+- Harden the engineering probe and release verification after independent review:
+  corrupt-state restore entry, explicit warm-dpi execute flag with durable recovery
+  markers, and full archive-content checks in verify-package.
 
 ### 0.3.0-alpha.1 engineering preview
 

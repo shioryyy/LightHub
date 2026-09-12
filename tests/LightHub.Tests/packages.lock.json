@@ -398,6 +398,12 @@
           "LightHub.Hid": "[0.3.0-alpha.2, )"
         }
       },
+      "lighthub.hardwareprobe": {
+        "type": "Project",
+        "dependencies": {
+          "LightHub.Hid": "[0.3.0-alpha.2, )"
+        }
+      },
       "lighthub.hid": {
         "type": "Project",
         "dependencies": {
