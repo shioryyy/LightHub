@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Candidate 0.3.0-alpha.2: focused physical-button editor with action search, explicit
+  save targets and compact DPI-stage cards. Device control metadata lives in the catalog.
+- Preserve current sensitivity when disabled DPI stages are compacted; reject disabled
+  default/Shift references and keep sparse or invalid edits intact across language changes.
+- Prepare separately gated slot enable/activation with directory-only updates and
+  recovery tests. Production activation permissions remain closed pending hardware evidence.
+- Handle HID++ 2.0 INVALID_FEATURE_INDEX during optional feature discovery without
+  hiding other protocol errors.
+- Fix headless dispatcher initialization and macOS parent-path aliases; exercise
+  Windows reparse boundaries with junctions when symbolic-link privileges are absent.
+- Include source commit/dirty provenance, verify package contents and reconstruct
+  the source archive in CI. A source archive's commit remains a declaration.
 - Add an offline macro library and bilingual manual editor: bounded keyboard steps,
   reordering, duplication, import/export, retained invalid drafts and recoverable deletion.
 - Protect macro saves with revision checks and a library lease; preserve unknown
