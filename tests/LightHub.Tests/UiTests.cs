@@ -135,6 +135,9 @@ public sealed partial class UiTests
             foreach (bool chinese in new[] { false, true })
             {
                 w.FindControl<ComboBox>("Language")!.SelectedIndex = chinese ? 1 : 0; Dispatcher.UIThread.RunJobs();
+                // LanguageChanged rebuilds the backup list asynchronously; await the
+                // refresh so the localized labels exist before asserting on them.
+                await w.Model.RefreshBackupsAsync(); Dispatcher.UIThread.RunJobs();
                 Assert.Contains(w.Model.Backups, b => b.Details.Contains(chinese ? "恢复保护" : "Recovery protected"));
                 if (Environment.GetEnvironmentVariable("LIGHTHUB_SCREENSHOTS") is { } output)
                 {
