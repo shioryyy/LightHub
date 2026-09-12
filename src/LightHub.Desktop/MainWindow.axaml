@@ -128,7 +128,7 @@
     </Grid>
     <Border Grid.Row="2" Grid.ColumnSpan="2" BorderBrush="#DFE4E7" BorderThickness="0,1,0,0" Padding="22,12" Background="#F8FAFA">
       <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
-        <StackPanel Spacing="4" VerticalAlignment="Center"><TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis"/><ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}" Height="3"/><TextBlock Text="{Binding DirtyText}" FontSize="11" Classes="muted"/></StackPanel>
+        <StackPanel Spacing="4" VerticalAlignment="Center"><TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis"/><ProgressBar IsIndeterminate="{Binding Busy}" IsVisible="{Binding Busy}" Height="3"/><TextBlock Text="{Binding DirtyText}" FontSize="11" Classes="muted"/></StackPanel>
         <Button Grid.Column="1" Content="{Binding L[Cancel]}" Click="CancelClicked" IsVisible="{Binding CanCancel}"/>
         <Button Grid.Column="2" Name="HardwareUndo" Content="{Binding L[Undo]}" Click="UndoClicked" IsEnabled="{Binding CanUndo}"/>
         <Button Grid.Column="3" Name="HardwareApply" Content="{Binding SaveTargetLabel}" Classes="primary" Click="ApplyClicked" IsEnabled="{Binding CanSaveToSlot}"/>
