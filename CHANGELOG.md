@@ -30,6 +30,10 @@
   state reporting for blank, unsupported, truncated, looping or damaged content.
 - Add issue templates, including a structured device-support report that feeds the
   evidence-gated catalog process.
+- Guide recovery when an unfinished transaction is detected: the backups page now
+  lists each pending transaction with its recorded backup file, error and device,
+  with a direct restore action that keeps identity checks. Writing stays locked
+  until the transaction is resolved.
 - Compile validated local keyboard macros into onboard macro-format-1 sector
   images with reference packing rules (alignment, jump reserve, terminator) and
   strict capacity refusal. Pure local functions for a future, separately gated

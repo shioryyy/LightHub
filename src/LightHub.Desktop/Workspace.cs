@@ -43,6 +43,9 @@ public sealed class Workspace : Observable
         return string.Format(L["ActivationDetails"], plan.Slot, plan.TargetDpi, L[plan.EnablesSlot ? "EnableAndActivate" : "Activate"]);
     }
     public bool RecoveryRequired { get; private set; }
+    public IReadOnlyList<TransactionRecord> PendingTransactions { get; private set; } = [];
+    public bool HasPendingTransactions => PendingTransactions.Count > 0;
+    public IEnumerable<RecoveryGuideItem> RecoveryGuide => PendingTransactions.Select(r => new RecoveryGuideItem(r, this));
     public ObservableCollection<DeviceEndpoint> Devices { get; } = [];
     public ObservableCollection<ProfileItem> Profiles { get; } = [];
     public ObservableCollection<DpiStage> Stages { get; } = [];
@@ -389,7 +392,8 @@ public sealed class Workspace : Observable
             Backups.Clear(); SelectedBackups = []; foreach (var file in result.Files) Backups.Add(new(file, L));
             Presets.Clear(); foreach (var preset in result.Presets) Presets.Add(preset);
             RecoveryRequired = result.Pending.Any(r => r.UnitId == Snapshot?.Identity.UnitId);
-            recoveryText = result.Pending.Count > 0 ? L["Pending"] : ""; Changed(nameof(RecoveryText));
+            PendingTransactions = result.Pending;
+            recoveryText = result.Pending.Count > 0 ? L["Pending"] : ""; Changed(nameof(RecoveryText)); Changed(nameof(PendingTransactions)); Changed(nameof(HasPendingTransactions)); Changed(nameof(RecoveryGuide));
             BackupSummary = string.Format(L["BackupSummary"], result.Files.Count, result.Files.Sum(f => f.Bytes) / 1024.0, result.Files.Count(f => f.Protected));
         }
         catch (Exception ex) { RecoveryRequired = true; BackupSummary = L["BackupUnavailable"] + " " + ex.Message; }

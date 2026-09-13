@@ -94,9 +94,25 @@
           </Grid>
         </TabItem>
         <TabItem Header="{Binding L[TabBackups]}" Width="92">
-          <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,20,0,0">
-            <WrapPanel Orientation="Horizontal"><Button Content="{Binding L[Export]}" Click="ExportClicked" IsEnabled="{Binding CanRead}" Margin="0,0,12,12"/><Button Content="{Binding L[Restore]}" Click="RestoreClicked" IsEnabled="{Binding CanRead}" Margin="0,0,12,12"/><Button Content="{Binding L[Diagnostics]}" Click="DiagnosticsClicked" Margin="0,0,0,12"/></WrapPanel>
-            <WrapPanel Grid.Row="1">
+          <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Margin="0,20,0,0">
+            <ItemsControl Grid.Row="0" ItemsSource="{Binding RecoveryGuide}" IsVisible="{Binding HasPendingTransactions}">
+              <ItemsControl.ItemTemplate><DataTemplate>
+                <Border BorderBrush="#9B4D13" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,10">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Details}" TextWrapping="Wrap" Foreground="#9B4D13"/>
+                    <TextBlock Text="{Binding $parent[Window].DataContext.L[RecoveryGuideHint]}" TextWrapping="Wrap" Classes="muted"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <TextBlock Text="{Binding BackupName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding $parent[Window].DataContext.L[RecoveryBackupMissing]}" Foreground="#9B4D13" VerticalAlignment="Center" IsVisible="{Binding !BackupAvailable}"/>
+                      <Button Content="{Binding $parent[Window].DataContext.L[RecoveryRestoreBackup]}" Click="RecoveryRestoreClicked" IsEnabled="{Binding CanRestore}"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </DataTemplate></ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <WrapPanel Grid.Row="1" Orientation="Horizontal"><Button Content="{Binding L[Export]}" Click="ExportClicked" IsEnabled="{Binding CanRead}" Margin="0,0,12,12"/><Button Content="{Binding L[Restore]}" Click="RestoreClicked" IsEnabled="{Binding CanRead}" Margin="0,0,12,12"/><Button Content="{Binding L[Diagnostics]}" Click="DiagnosticsClicked" Margin="0,0,0,12"/></WrapPanel>
+            <WrapPanel Grid.Row="2">
               <Button Content="{Binding L[ExportSelectedBackup]}" Click="ExportSelectedBackupClicked" IsEnabled="{Binding CanExportBackup}" Margin="0,0,8,8"/>
               <Button Content="{Binding L[RestoreSelectedBackup]}" Click="RestoreSelectedBackupClicked" IsEnabled="{Binding CanRestoreSelectedBackup}" Margin="0,0,8,8"/>
               <Button Content="{Binding L[DeleteBackups]}" Click="DeleteBackupsClicked" IsEnabled="{Binding CanDeleteBackups}" Margin="0,0,8,8"/>
@@ -106,11 +122,11 @@
               <Button Content="{Binding L[NameBackup]}" Click="NameBackupClicked" IsEnabled="{Binding CanManageBackups}" Margin="8,0,0,8"/>
               <Button Content="{Binding L[Trash]}" Click="TrashClicked" IsEnabled="{Binding Idle}" Margin="8,0,0,8"/>
             </WrapPanel>
-            <TextBlock Grid.Row="2" Text="{Binding BackupSummary}" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,10"/>
-            <ListBox Grid.Row="3" ItemsSource="{Binding Backups}" Name="BackupList" SelectionMode="Multiple" SelectionChanged="BackupSelectionChanged" DoubleTapped="BackupDoubleTapped">
+            <TextBlock Grid.Row="3" Text="{Binding BackupSummary}" Classes="muted" TextWrapping="Wrap" Margin="0,0,0,10"/>
+            <ListBox Grid.Row="4" ItemsSource="{Binding Backups}" Name="BackupList" SelectionMode="Multiple" SelectionChanged="BackupSelectionChanged" DoubleTapped="BackupDoubleTapped">
               <ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="Auto,*" ColumnSpacing="10"><CheckBox IsChecked="{Binding $parent[ListBoxItem].IsSelected, Mode=TwoWay}" ToolTip.Tip="{Binding Title}"/><StackPanel Grid.Column="1" Spacing="4" Margin="0,5"><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Details}" Classes="muted"/><TextBlock Text="{Binding Name}" FontSize="10" Classes="muted" TextWrapping="Wrap"/></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
             </ListBox>
-            <Expander Grid.Row="4" Header="{Binding L[DiagnosticDetails]}" HorizontalAlignment="Stretch" Margin="0,8,0,0"><TextBox Text="{Binding DiagnosticText}" IsReadOnly="True" AcceptsReturn="True" Height="100" TextWrapping="Wrap"/></Expander>
+            <Expander Grid.Row="5" Header="{Binding L[DiagnosticDetails]}" HorizontalAlignment="Stretch" Margin="0,8,0,0"><TextBox Text="{Binding DiagnosticText}" IsReadOnly="True" AcceptsReturn="True" Height="100" TextWrapping="Wrap"/></Expander>
           </Grid>
         </TabItem>
         <TabItem Header="{Binding L[TabSupport]}" Width="132">

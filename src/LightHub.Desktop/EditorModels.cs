@@ -68,6 +68,19 @@ public sealed class ButtonEditor : Observable
     }
 }
 public sealed record ProfileItem(int Sector, string Label) { public override string ToString() => Label; }
+public sealed class RecoveryGuideItem
+{
+    private readonly TransactionRecord record;
+    private readonly Workspace workspace;
+    public RecoveryGuideItem(TransactionRecord record, Workspace workspace) { this.record = record; this.workspace = workspace; }
+    public TransactionRecord Record => record;
+    public string Title => (workspace.Snapshot is not null && record.UnitId == workspace.Snapshot.Identity.UnitId
+        ? workspace.Snapshot.Identity.Name : workspace.L["RecoveryOtherDevice"]) + " · " + $"{record.Started.LocalDateTime:g}";
+    public string Details => string.IsNullOrEmpty(record.Error) ? workspace.L["Pending"] : record.Error;
+    public string BackupName => Path.GetFileName(record.BackupPath);
+    public bool BackupAvailable => File.Exists(record.BackupPath);
+    public bool CanRestore => BackupAvailable && !workspace.Busy && workspace.Snapshot is not null && record.UnitId == workspace.Snapshot.Identity.UnitId;
+}
 public sealed record BackupItem(StoredBackup Backup, Strings L)
 {
     public string Name => Backup.Name;

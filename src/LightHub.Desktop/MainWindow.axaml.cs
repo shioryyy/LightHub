@@ -174,6 +174,10 @@ public partial class MainWindow : Window
             await Model.Run(Model.L["ExportSelectedBackup"], _ => Task.Run(() => Model.Store.ExportStoredBackup(item.Path, path)), mutation: true);
     });
     private async void RestoreSelectedBackupClicked(object? sender, RoutedEventArgs e) => await RestoreSelectedBackup();
+    private async void RecoveryRestoreClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.DataContext is RecoveryGuideItem item) await Restore(item.Record.BackupPath);
+    }
     private async void BackupDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e) => await RestoreSelectedBackup();
     private Task RestoreSelectedBackup() => Safe(async () => { if (Model.CanRestoreSelectedBackup) await Restore(Model.SelectedBackups[0].Path); });
     private async void DeleteBackupsClicked(object? sender, RoutedEventArgs e) => await Safe(async () =>

@@ -283,3 +283,44 @@ public sealed class OnboardMacroPackerTests
         Assert.Equal(0x44, data[3]); Assert.Equal(0x01, data[4]);
     }
 }
+
+// The guided recovery entry lists unfinished transactions with their exact backup
+// paths; restore itself stays gated on a connected, matching device.
+public sealed class RecoveryGuideTests
+{
+    [AvaloniaFact]
+    public async Task PendingTransactionShowsGuidedRecoveryEntry()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "lighthub-recovery-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new TransactionStore(root);
+            var backup = store.SaveBackup(DemoData.Create());
+            store.Record(new("test-rec", "1234ABCD", backup, backup, "failed", DateTimeOffset.UtcNow.AddMinutes(-5), [5], "Simulated interrupted write"));
+            var w = new MainWindow(false, store); w.Show(); await w.Initialization; Dispatcher.UIThread.RunJobs();
+            try
+            {
+                await w.Model.RefreshBackupsAsync(); Dispatcher.UIThread.RunJobs();
+                Assert.True(w.Model.HasPendingTransactions);
+                var item = Assert.Single(w.Model.RecoveryGuide);
+                Assert.True(item.BackupAvailable);
+                Assert.EndsWith(".lhbackup", item.BackupName);
+                Assert.False(item.CanRestore); // no device connected in the headless test
+                Assert.Contains("Simulated interrupted write", item.Details);
+                Assert.Equal("test-rec", item.Record.Id);
+            }
+            finally
+            {
+                w.Model.DisposeSession(); w.Close(); Dispatcher.UIThread.RunJobs();
+            }
+        }
+        finally
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                try { Directory.Delete(root, true); break; }
+                catch (IOException) when (attempt < 15) { Thread.Sleep(200); }
+            }
+        }
+    }
+}
