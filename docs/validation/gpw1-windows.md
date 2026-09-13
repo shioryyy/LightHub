@@ -105,6 +105,13 @@ battery 4122 mV), alpha.2 candidate source 701802e, Windows 10.0.26200, tester p
   verification took 8969 / 8951 / 8983 ms. All runs ended with an identical
   baseline. These are three functional regression samples, not a latency p95.
 
+- Read-only onboard macro inspection (2026-09-13, alpha.3 development build
+  3611915): the new `macros` command read all ten macro sectors (6-15) and every
+  profile binding on this unit. All macro sectors are factory-blank (0xFF) and no
+  binding carries a macro pointer, matching a never-macroed onboard configuration;
+  the strict-bounds parser reported the blank state without any write traffic.
+  First real-device evidence for the M4 read-only parsing step.
+
 Remaining for this unit: multiple simultaneous receivers remain unverified and are
 recorded as such in the release checklist. Production
 `Activate`/`EnableProfile` permissions stay closed pending the independent review
