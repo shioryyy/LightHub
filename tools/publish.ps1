@@ -46,7 +46,9 @@ try {
         # avoid relying on PowerShell/.NET Tar API availability across pwsh versions.
         & chmod +x (Join-Path $stage 'LightHub.Desktop') (Join-Path $stage 'LightHub.Cli')
         if ($LASTEXITCODE -ne 0) { throw 'Failed to set Unix executable modes' }
-        & tar -czf "$stage.tar.gz" -C (Split-Path $stage -Parent) (Split-Path $stage -Leaf)
+        $tarArgs = @('-czf', "$stage.tar.gz", '-C', (Split-Path $stage -Parent), (Split-Path $stage -Leaf))
+        if ((tar --version) -match 'GNU tar') { $tarArgs += '--force-local' }
+        & tar @tarArgs
         if ($LASTEXITCODE -ne 0) { throw 'Archive failed' }
         Get-FileHash "$stage.tar.gz"
     }
