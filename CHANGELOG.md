@@ -30,6 +30,11 @@
   state reporting for blank, unsupported, truncated, looping or damaged content.
 - Add issue templates, including a structured device-support report that feeds the
   evidence-gated catalog process.
+- Compile validated local keyboard macros into onboard macro-format-1 sector
+  images with reference packing rules (alignment, jump reserve, terminator) and
+  strict capacity refusal. Pure local functions for a future, separately gated
+  write driver; verified by round-tripping through the read-only parser. Nothing
+  writes to a device.
 - Read-only onboard profile names (memory model 1 layout A): the editor shows a
   stored name next to each profile slot and `inspect` lists it; undecodable content
   is reported as absent. Renaming still requires a validated write driver.

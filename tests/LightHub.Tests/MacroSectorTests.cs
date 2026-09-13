@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.Text;
+using LightHub.Application;
 using LightHub.Desktop;
 using Xunit;
 
@@ -230,5 +231,55 @@ public sealed class ProfileNameTests
             Assert.DoesNotContain("0x09", text);
         }
         finally { w.Close(); }
+    }
+}
+
+public sealed class OnboardMacroPackerTests
+{
+    private static LocalMacro Macro(params MacroEvent[] events) => new(1, Guid.NewGuid().ToString("N"), "compile-test", "single", events);
+    private static DeviceSnapshot SnapshotWith(OnboardMacroPacker.PackedMacro packed)
+    {
+        var s = DemoData.Create();
+        foreach (var pair in packed.Sectors) s.Sectors[pair.Key] = pair.Value;
+        return s;
+    }
+
+    [Fact]
+    public void SingleSectorMacroRoundTripsThroughTheReader()
+    {
+        var macro = Macro(new("down", 0x04, 0), new("up", 0x04, 0), new("delay", 0, 500), new("down", 0xe0, 0), new("down", 0x06, 0), new("up", 0x06, 0), new("up", 0xe0, 0));
+        var packed = OnboardMacroPacker.Pack(macro, [6, 7, 8], 255);
+        Assert.Single(packed.Sectors);
+        Assert.Equal("complete", OnboardMacroFormat.Decode(SnapshotWith(packed), [6, 7, 8], packed.StartSector, 0).State);
+        var steps = OnboardMacroFormat.Decode(SnapshotWith(packed), [6, 7, 8], packed.StartSector, 0).Steps;
+        Assert.Equal(new[] { "key", "delay", "key-press", "key", "key-release" }, steps.Select(s => s.Kind));
+        Assert.Equal(500, steps[1].DelayMs);
+    }
+    [Fact]
+    public void LargeMacroSpansSectorsWithJumpsAndStillRoundTrips()
+    {
+        var events = Enumerable.Range(0, 100).Select(_ => new MacroEvent("delay", 0, 10000)).ToArray();
+        var macro = Macro(events);
+        var packed = OnboardMacroPacker.Pack(macro, [6, 7, 8, 9], 255);
+        Assert.True(packed.Sectors.Count > 1);
+        var decoded = OnboardMacroFormat.Decode(SnapshotWith(packed), [6, 7, 8, 9], packed.StartSector, 0);
+        Assert.Equal("complete", decoded.State);
+        Assert.Equal(100, decoded.Steps.Count);
+        Assert.All(decoded.Steps, s => Assert.Equal(10000, s.DelayMs));
+    }
+    [Fact]
+    public void OversizedMacroFailsCapacityInsteadOfGuessing()
+    {
+        var events = Enumerable.Range(0, 100).Select(_ => new MacroEvent("delay", 0, 10000)).ToArray();
+        Assert.Throws<MacroLibraryException>(() => OnboardMacroPacker.Pack(Macro(events), [6], 255));
+    }
+    [Fact]
+    public void ModifierUsagesEncodeAsModifierBits()
+    {
+        var macro = Macro(new("down", 0xe0, 0), new("up", 0xe0, 0));
+        var packed = OnboardMacroPacker.Pack(macro, [6], 255);
+        var data = packed.Sectors[6];
+        Assert.Equal(0x43, data[0]); Assert.Equal(0x01, data[1]); Assert.Equal(0x00, data[2]);
+        Assert.Equal(0x44, data[3]); Assert.Equal(0x01, data[4]);
     }
 }
