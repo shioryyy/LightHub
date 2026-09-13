@@ -88,8 +88,18 @@ battery 4122 mV), alpha.2 candidate source 701802e, Windows 10.0.26200, tester p
   refuses stale writes. This behavior is identical to the alpha.1 desktop code and is
   recorded as a known characteristic, not a regression.
 
-Remaining for this unit: USB wired mode and multiple simultaneous receivers remain
-unverified and are recorded as such in the release checklist. Production
+- USB wired mode (2026-09-13, same unit): with the receiver unplugged, the direct
+  wired identity (PID C088, direct slot 255) was discovered and read successfully —
+  same firmware, layout, profile directory and telemetry as the wireless path. A
+  wired backup matched the restored wireless baseline sector for sector, confirming
+  both transports address the same onboard memory. All write operations were refused
+  with the expected evidence-gating message because the catalog records write
+  evidence only for the C539 receiver connection; a `dpi-smoke` attempt in wired
+  mode was refused before any device write. Wired mode is therefore read-only by
+  design until separate wired write evidence exists.
+
+Remaining for this unit: multiple simultaneous receivers remain unverified and are
+recorded as such in the release checklist. Production
 `Activate`/`EnableProfile` permissions stay closed pending the independent review
 gate; the probe's temporary permission never leaves its own process.
 
