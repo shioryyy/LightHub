@@ -449,6 +449,30 @@ public sealed class ReviewAlpha3Tests
         Assert.Equal("truncated", over.State);
         Assert.Equal(4096, over.Steps.Count);
     }
+    [Fact]
+    public void EventCapAllowsJumpBeforeEnd()
+    {
+        var sectors = DemoData.Create(sectors: 60);
+        var ids = OnboardMacroFormat.MacroSectorIds(sectors);
+        int perSector = (255 - 2 - 5) / 3;
+        int remaining = 4096, i = 0;
+        for (; remaining > 0; i++)
+        {
+            var data = sectors.Sectors[ids[i]];
+            int offset = 0, count = Math.Min(perSector, remaining);
+            for (int e = 0; e < count; e++) { data[offset] = 0x40; data[offset + 1] = 0x00; data[offset + 2] = 0x01; offset += 3; }
+            remaining -= count;
+            ushort next = ids[i + 1];
+            data[offset] = 0x60; data[offset + 1] = (byte)(next >> 8); data[offset + 2] = (byte)next; data[offset + 3] = 0x00; data[offset + 4] = 0x00;
+            Wire.UpdateCrc(data);
+        }
+        var tail = sectors.Sectors[ids[i]];
+        tail[0] = 0xFF;
+        Wire.UpdateCrc(tail);
+        var decoded = OnboardMacroFormat.Decode(sectors, ids, ids[0], 0);
+        Assert.Equal("complete", decoded.State);
+        Assert.Equal(4096, decoded.Steps.Count);
+    }
     private static OnboardMacro DecodeDelayStream(DeviceSnapshot s, ushort[] ids, int eventCount)
     {
         int perSector = (255 - 2 - 5) / 3;

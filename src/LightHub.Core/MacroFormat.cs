@@ -73,9 +73,9 @@ public static class OnboardMacroFormat
             int payloadEnd = data.Length - 2;
             if (offset >= payloadEnd) { Collapse(events, steps); return new("truncated", steps); }
             byte opcode = data[offset];
-            // The cap is checked per event, after END: exactly MaxEvents events
-            // followed by a terminator stay complete, anything beyond is truncated.
-            if (opcode != 0xFF && events.Count >= MaxEvents) { Collapse(events, steps); return new("truncated", steps); }
+            // The cap counts events, not structural bytes: exactly MaxEvents events
+            // may still be followed by a JUMP (which adds no event) and then END.
+            if (opcode is not 0xFF and not 0x60 && events.Count >= MaxEvents) { Collapse(events, steps); return new("truncated", steps); }
             byte first = offset + 1 < data.Length ? data[offset + 1] : (byte)0;
             byte second = offset + 2 < data.Length ? data[offset + 2] : (byte)0;
             switch (opcode)
