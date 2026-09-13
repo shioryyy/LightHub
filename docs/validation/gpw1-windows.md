@@ -98,6 +98,13 @@ battery 4122 mV), alpha.2 candidate source 701802e, Windows 10.0.26200, tester p
   mode was refused before any device write. Wired mode is therefore read-only by
   design until separate wired write evidence exists.
 
+- Standard onboard save timing (2026-09-13, receiver connection, three bounded
+  `smoke --write-inactive-and-restore` regressions on the released alpha.2 build):
+  write including preflight, sector write and full read-back verification took
+  6379 / 6396 / 6400 ms (budget target <=8 s, met); restore including complete
+  verification took 8969 / 8951 / 8983 ms. All runs ended with an identical
+  baseline. These are three functional regression samples, not a latency p95.
+
 Remaining for this unit: multiple simultaneous receivers remain unverified and are
 recorded as such in the release checklist. Production
 `Activate`/`EnableProfile` permissions stay closed pending the independent review
