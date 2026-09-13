@@ -78,6 +78,7 @@
                   <TextBlock Text="{Binding ButtonAssignment.CurrentAction.Label}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" Name="CurrentAssignment"/>
                   <TextBlock Text="{Binding L[AssignmentDraftHint]}" TextWrapping="Wrap" Classes="muted" FontSize="11"/>
                   <TextBlock Text="{Binding L[ProtectedClickHint]}" TextWrapping="Wrap" Foreground="#9B4D13" IsVisible="{Binding ButtonAssignment.PrimaryProtected}"/>
+                  <TextBlock Text="{Binding ButtonAssignment.OnboardMacroInfo}" TextWrapping="Wrap" Classes="muted" FontSize="11" IsVisible="{Binding ButtonAssignment.HasOnboardMacroInfo}" Name="OnboardMacroInfo"/>
                 </StackPanel>
                 <Grid Grid.Row="2" ColumnDefinitions="*,130" ColumnSpacing="8" IsEnabled="{Binding ButtonAssignment.CanAssign}">
                   <TextBox Text="{Binding ButtonAssignment.Search}" PlaceholderText="{Binding L[FindAction]}" AutomationProperties.Name="{Binding L[FindAction]}"/>

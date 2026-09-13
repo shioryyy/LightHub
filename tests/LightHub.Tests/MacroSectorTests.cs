@@ -1,4 +1,8 @@
 using LightHub.Core;
+using Avalonia.Headless.XUnit;
+using Avalonia.Controls;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using LightHub.Desktop;
 using Xunit;
 
@@ -127,5 +131,40 @@ public sealed class MacroSectorTests
         var s = Snapshot();
         var macro = OnboardMacroFormat.Decode(s, Ids(s), 1, 0);
         Assert.Equal("outside-macro-range", macro.State);
+    }
+}
+
+// The device editor surfaces what a macro pointer refers to, read-only, in both
+// languages, without offering any way to write onboard macro bytes.
+public sealed class MacroInfoUiTests
+{
+    [AvaloniaFact]
+    public async Task MacroPointerBindingShowsOnboardStepsAndLanguageSwitch()
+    {
+        var w = new MainWindow(true); w.Show(); await w.Initialization; Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var s = w.Model.Snapshot!;
+            s.Sectors[9][0] = 0x43; s.Sectors[9][1] = 0x02; s.Sectors[9][2] = 0x06;
+            s.Sectors[9][3] = 0x44; s.Sectors[9][4] = 0x02; s.Sectors[9][5] = 0x06;
+            s.Sectors[9][6] = 0x40; s.Sectors[9][7] = 0x00; s.Sectors[9][8] = 0x78; s.Sectors[9][9] = 0xFF;
+            Wire.UpdateCrc(s.Sectors[9]);
+            byte[] pointer = [0x00, 0x09, 0x00, 0x00];
+            pointer.CopyTo(s.Sectors[1], 32 + 4);
+            Wire.UpdateCrc(s.Sectors[1]);
+            w.Model.LoadProfile(1);
+            var vm = w.Model.ButtonAssignment;
+            vm.Button = w.Model.Buttons[1];
+            Assert.True(vm.HasOnboardMacroInfo);
+            Assert.Contains("shift+c", vm.OnboardMacroInfo);
+            Assert.Contains("wait 120 ms", vm.OnboardMacroInfo);
+            vm.Button = w.Model.Buttons[0];
+            Assert.False(vm.HasOnboardMacroInfo);
+            w.FindControl<ComboBox>("Language")!.SelectedIndex = 1; Dispatcher.UIThread.RunJobs();
+            vm.Button = w.Model.Buttons[1];
+            Assert.StartsWith("板载宏", vm.OnboardMacroInfo);
+            Assert.Contains("wait 120 ms", vm.OnboardMacroInfo);
+        }
+        finally { w.Close(); }
     }
 }

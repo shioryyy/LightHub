@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or usage help
+    url: https://github.com/shioryyy/LightHub/discussions
+    about: Usage questions and ideas that are not yet concrete reports.

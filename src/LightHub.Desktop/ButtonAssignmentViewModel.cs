@@ -9,8 +9,18 @@ public sealed class ButtonAssignmentViewModel : Observable
     private string search = "";
     private int group;
     private ActionGroupItem[] groups;
+    private Func<byte[], string?>? macroDescribe;
     public Strings L { get; private set; }
     public ButtonAssignmentViewModel(Strings l) { L = l; groups = MakeGroups(); }
+    // Set by the workspace; decodes an onboard macro pointer binding read-only.
+    public Func<byte[], string?>? MacroDescribe
+    {
+        get => macroDescribe;
+        set { macroDescribe = value; Changed(nameof(OnboardMacroInfo)); Changed(nameof(HasOnboardMacroInfo)); }
+    }
+    public string? OnboardMacroInfo => macroDescribe?.Invoke(Button?.Selected?.Bytes ?? []);
+    public bool HasOnboardMacroInfo => OnboardMacroInfo is not null;
+    public void RefreshMacroInfo() { Changed(nameof(OnboardMacroInfo)); Changed(nameof(HasOnboardMacroInfo)); }
     public ButtonEditor? Button
     {
         get => button;
@@ -21,7 +31,7 @@ public sealed class ButtonAssignmentViewModel : Observable
             button = value;
             if (button is not null) button.PropertyChanged += ButtonChanged;
             search = ""; group = 0;
-            foreach (string property in new[] { nameof(Button), nameof(Search), nameof(Group), nameof(SelectedGroup), nameof(CurrentAction), nameof(Options), nameof(CanAssign), nameof(PrimaryProtected) }) Changed(property);
+            foreach (string property in new[] { nameof(Button), nameof(Search), nameof(Group), nameof(SelectedGroup), nameof(CurrentAction), nameof(Options), nameof(CanAssign), nameof(PrimaryProtected), nameof(OnboardMacroInfo), nameof(HasOnboardMacroInfo) }) Changed(property);
         }
     }
     public string Search { get => search; set { if (Set(ref search, value)) Changed(nameof(Options)); } }
@@ -42,7 +52,7 @@ public sealed class ButtonAssignmentViewModel : Observable
     }
     private void ButtonChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ButtonEditor.Selected)) { Changed(nameof(CurrentAction)); Changed(nameof(Options)); }
+        if (e.PropertyName == nameof(ButtonEditor.Selected)) { Changed(nameof(CurrentAction)); Changed(nameof(Options)); Changed(nameof(OnboardMacroInfo)); Changed(nameof(HasOnboardMacroInfo)); }
     }
     public void SetLanguage(Strings language) { L = language; groups = MakeGroups(); Changed(nameof(L)); Changed(nameof(Groups)); Changed(nameof(SelectedGroup)); Changed(nameof(Options)); }
 }

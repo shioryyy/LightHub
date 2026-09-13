@@ -123,7 +123,7 @@ public sealed class Workspace : Observable
     {
         Demo = demo; Store = store ?? new(demo ? Path.Combine(Path.GetTempPath(), "LightHub-demo", Guid.NewGuid().ToString("N")) : null); Assets = new(Store.Root); Status = L["Ready"]; PresetName = L["NewPreset"];
         Macros = new(new MacroLibrary(Store.Root), L);
-        ButtonAssignment = new(L);
+        ButtonAssignment = new(L) { MacroDescribe = DescribeOnboardMacro };
         draftTimer.Tick += async (_, _) =>
         {
             draftTimer.Stop(); if (!dirty || Demo) return;
@@ -138,6 +138,26 @@ public sealed class Workspace : Observable
             catch (Exception ex) { Store.Log(ex); }
         };
     }
+    // Read-only: describes what a macro-pointer binding refers to. No byte is ever
+    // rewritten; unsupported or damaged content is reported verbatim per its state.
+    private string? DescribeOnboardMacro(byte[] binding)
+    {
+        if (Snapshot is null || !OnboardMacroFormat.IsMacroPointer(binding)) return null;
+        ushort sector = OnboardMacroFormat.PointerSector(binding);
+        var macro = OnboardMacroFormat.Decode(Snapshot, OnboardMacroFormat.MacroSectorIds(Snapshot), sector, OnboardMacroFormat.PointerOffset(binding));
+        string state = macro.State switch
+        {
+            "complete" => string.Join(" → ", macro.Steps.Take(8).Select(s => s.ToString())) + (macro.Steps.Count > 8 ? " …" : ""),
+            "blank" => L["MacroEmpty"],
+            "unsupported-opcode" => L["MacroUnsupported"],
+            "truncated" => L["MacroTruncated"],
+            "loop" => L["MacroLoop"],
+            "invalid-crc" => L["MacroCrc"],
+            _ => L["MacroOutside"],
+        };
+        return (L.Chinese ? $"板载宏（扇区 {sector}）：" : $"Onboard macro (sector {sector}): ") + state;
+    }
+
     public void SetLanguage(bool chinese)
     {
         // Preserve editor coordinates and invalid input verbatim. Serializing a
@@ -151,6 +171,7 @@ public sealed class Workspace : Observable
         L = new(chinese); foreach (string name in new[] { nameof(L), nameof(StageNames), nameof(ShiftNames), nameof(CompatibilityText), nameof(SupportText), nameof(SupportBadge), nameof(DeviceName) }) Changed(name);
         Macros.SetLanguage(L);
         ButtonAssignment.SetLanguage(L);
+        ButtonAssignment.RefreshMacroInfo();
         if (Demo) { Status = L["Demo"]; DiscoverySummary = L["Demo"]; }
         if (Snapshot is not null)
         {

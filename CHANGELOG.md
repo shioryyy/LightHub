@@ -25,6 +25,11 @@
 - Fix nullable battery-voltage formatting; unavailable/zero voltage is shown as unknown.
 - Runtime values refresh after explicit actions; the idle UI does not poll HID.
 - Bind the status progress bar to the busy state so the idle window runs no animation.
+- Show what a macro-pointer button binding refers to in the device editor, read
+  only and in both languages: decoded steps for complete macros, and verbatim
+  state reporting for blank, unsupported, truncated, looping or damaged content.
+- Add issue templates, including a structured device-support report that feeds the
+  evidence-gated catalog process.
 - Add read-only onboard macro inspection (M4 step one): strict-bounds parsing of
   macro-format-1 sectors and binding pointers, with unknown opcodes, truncated
   streams, loops and CRC damage reported as states instead of guesses. New
