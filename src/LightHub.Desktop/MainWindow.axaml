@@ -105,7 +105,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="10">
                       <TextBlock Text="{Binding BackupName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                       <TextBlock Text="{Binding $parent[Window].DataContext.L[RecoveryBackupMissing]}" Foreground="#9B4D13" VerticalAlignment="Center" IsVisible="{Binding !BackupAvailable}"/>
-                      <Button Content="{Binding $parent[Window].DataContext.L[RecoveryRestoreBackup]}" Click="RecoveryRestoreClicked" IsEnabled="{Binding CanRestore}"/>
+                      <Button Name="RecoveryRestore" Content="{Binding $parent[Window].DataContext.L[RecoveryRestoreBackup]}" Click="RecoveryRestoreClicked" IsEnabled="{Binding CanRestore}"/>
                     </StackPanel>
                   </StackPanel>
                 </Border>

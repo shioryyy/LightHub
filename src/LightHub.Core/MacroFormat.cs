@@ -52,6 +52,8 @@ public static class OnboardMacroFormat
     public static OnboardMacro Decode(DeviceSnapshot snapshot, ushort[] macroSectors, ushort startSector, ushort startOffset)
     {
         var steps = new List<OnboardMacroStep>();
+        if (snapshot.Layout.MemoryModel != 1 || snapshot.Layout.MacroFormat != 1)
+            return new("unsupported-format", steps);
         var events = new List<(byte Opcode, byte First, byte Second)>();
         if (!macroSectors.Contains(startSector)) return new("outside-macro-range", steps);
         if (snapshot.Sectors.TryGetValue(startSector, out var startData) && startData.All(b => b == 0xFF))
@@ -62,7 +64,6 @@ public static class OnboardMacroFormat
         var blank = new Func<byte[], bool>(data => data.All(b => b == 0xFF));
         while (true)
         {
-            if (events.Count > MaxEvents || steps.Count > MaxEvents) { Collapse(events, steps); return new("truncated", steps); }
             if (!visited.Add((sector, offset))) { Collapse(events, steps); return new("loop", steps); }
             if (!snapshot.Sectors.TryGetValue(sector, out var data)) { Collapse(events, steps); return new("invalid-crc", steps); }
             if (!Wire.ValidCrc(data))
@@ -72,6 +73,9 @@ public static class OnboardMacroFormat
             int payloadEnd = data.Length - 2;
             if (offset >= payloadEnd) { Collapse(events, steps); return new("truncated", steps); }
             byte opcode = data[offset];
+            // The cap is checked per event, after END: exactly MaxEvents events
+            // followed by a terminator stay complete, anything beyond is truncated.
+            if (opcode != 0xFF && events.Count >= MaxEvents) { Collapse(events, steps); return new("truncated", steps); }
             byte first = offset + 1 < data.Length ? data[offset + 1] : (byte)0;
             byte second = offset + 2 < data.Length ? data[offset + 2] : (byte)0;
             switch (opcode)
@@ -132,7 +136,13 @@ public static class OnboardMacroFormat
     }
 
     private static readonly string[] ModifierNames = ["ctrl", "shift", "alt", "win", "rctrl", "rshift", "ralt", "rwin"];
-    public static string KeyName(byte modifiers, byte usage) => (Prefix(modifiers) + BaseKeyName(usage)) is { Length: > 0 } name ? name : "key 0x" + usage.ToString("X2");
+    public static string KeyName(byte modifiers, byte usage)
+    {
+        if (usage == 0) return modifiers == 0 ? "key 0x00" : Prefix(modifiers).TrimEnd('+');
+        string baseKey = BaseKeyName(usage);
+        if (baseKey.Length == 0) baseKey = "key 0x" + usage.ToString("X2");
+        return Prefix(modifiers) + baseKey;
+    }
     private static string Prefix(byte modifiers)
     {
         var parts = Enumerable.Range(0, 8).Where(i => (modifiers & (1 << i)) != 0).Select(i => ModifierNames[i] + "+");
@@ -141,7 +151,8 @@ public static class OnboardMacroFormat
     private static string BaseKeyName(byte usage) => usage switch
     {
         >= 0x04 and <= 0x1D => ((char)('a' + usage - 0x04)).ToString(),
-        >= 0x1E and <= 0x27 => ((char)('1' + usage - 0x1E)).ToString(),
+        >= 0x1E and <= 0x26 => ((char)('1' + usage - 0x1E)).ToString(),
+        0x27 => "0",
         0x28 => "enter", 0x29 => "esc", 0x2A => "backspace", 0x2B => "tab", 0x2C => "space",
         0x2D => "-", 0x2E => "=", 0x2F => "[", 0x30 => "]", 0x31 => "\\", 0x33 => ";", 0x34 => "'",
         0x35 => "`", 0x36 => ",", 0x37 => ".", 0x38 => "/",

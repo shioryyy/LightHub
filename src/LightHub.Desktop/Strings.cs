@@ -41,6 +41,7 @@ public sealed class Strings
         ["MacroLoop"] = ["contains a jump loop", "包含跳转循环"],
         ["MacroCrc"] = ["sector checksum damaged", "扇区校验和损坏"],
         ["MacroOutside"] = ["points outside the macro storage area", "指向宏存储区之外"],
+        ["MacroUnknownFormat"] = ["unknown onboard macro format; the bytes are preserved untouched", "未知的板载宏格式；字节原样保留"],
         ["RecoveryGuideTitle"] = ["Unfinished write — recovery required before further changes", "未完成的写入——需要恢复后才能继续变更"],
         ["RecoveryGuideHint"] = ["Writing stays locked until this transaction is resolved. Restoring the listed backup returns the mouse to its pre-write state; the restore is verified by a full read-back.", "在解决该事务前写入保持锁定。恢复列出的备份可把鼠标带回写入前状态，恢复结果经完整回读校验。"],
         ["RecoveryRestoreBackup"] = ["Restore this backup", "恢复此备份"],

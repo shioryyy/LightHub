@@ -22,8 +22,21 @@ public static class ProfileName
         {
             ushort unit = BinaryPrimitives.ReadUInt16LittleEndian(area.AsSpan(offset, 2));
             if (unit is 0 or 0xFFFF) break;
-            if (unit is >= 0xD800 and <= 0xDFFF or < 0x20 or 0x7F) return null;
-            units.Add((char)unit);
+            // Surrogates are accepted only as complete, correctly ordered pairs;
+            // every other unit must not be a control character (C0 or C1).
+            if (unit is >= 0xD800 and <= 0xDBFF)
+            {
+                if (offset + 3 >= area.Length) return null;
+                ushort low = BinaryPrimitives.ReadUInt16LittleEndian(area.AsSpan(offset + 2, 2));
+                if (low is < 0xDC00 or > 0xDFFF) return null;
+                units.Add((char)unit); units.Add((char)low);
+                offset += 2;
+                continue;
+            }
+            if (unit is >= 0xDC00 and <= 0xDFFF) return null;
+            char c = (char)unit;
+            if (char.IsControl(c)) return null;
+            units.Add(c);
         }
         return units.Count == 0 ? null : new string(units.ToArray());
     }

@@ -176,7 +176,7 @@ public partial class MainWindow : Window
     private async void RestoreSelectedBackupClicked(object? sender, RoutedEventArgs e) => await RestoreSelectedBackup();
     private async void RecoveryRestoreClicked(object? sender, RoutedEventArgs e)
     {
-        if ((sender as Button)?.DataContext is RecoveryGuideItem item) await Restore(item.Record.BackupPath);
+        if ((sender as Button)?.DataContext is RecoveryGuideItem item) await Safe(() => Restore(item.Record.BackupPath));
     }
     private async void BackupDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e) => await RestoreSelectedBackup();
     private Task RestoreSelectedBackup() => Safe(async () => { if (Model.CanRestoreSelectedBackup) await Restore(Model.SelectedBackups[0].Path); });

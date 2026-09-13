@@ -42,6 +42,7 @@ public static class OnboardMacroPacker
 
     public static int EncodedLength(LocalMacro macro)
     {
+        MacroValidator.ValidateShape(macro);
         int bytes = EventBytes(macro).Sum(e => e.Length);
         bytes += 1;             // 0xFF terminator
         bytes += bytes % 2;     // padding keeps records 2-byte aligned
@@ -50,7 +51,7 @@ public static class OnboardMacroPacker
 
     public static PackedMacro Pack(LocalMacro macro, IReadOnlyList<ushort> macroSectorIds, int sectorSize)
     {
-        MacroValidator.ValidateShape(macro);
+        MacroValidator.Validate(macro); // full semantic check: unbalanced or empty macros must not compile
         if (macroSectorIds.Count == 0 || sectorSize < 8) throw new MacroLibraryException("Capacity");
         int payloadSize = sectorSize - 2;
         var sectors = macroSectorIds.ToDictionary(id => (int)id, _ => Enumerable.Repeat((byte)0xFF, sectorSize).ToArray());
@@ -77,9 +78,9 @@ public static class OnboardMacroPacker
         offset++;
         if (offset % 2 == 1) { sectors[(int)macroSectorIds[sectorIndex]][offset] = 0xFF; bytes++; }
         foreach (var pair in sectors.Take(sectorIndex + 1)) Wire.UpdateCrc(pair.Value);
-        // Only the sectors this macro touches are returned; untouched macro sectors
+        // Return exactly the sectors used, in packing order; untouched macro sectors
         // keep whatever the device already holds and are never part of a write set.
-        int lastUsed = (int)macroSectorIds[sectorIndex];
-        return new(sectors.Where(p => p.Key <= lastUsed).ToDictionary(p => p.Key, p => p.Value), macroSectorIds[0], bytes);
+        var used = macroSectorIds.Take(sectorIndex + 1).ToDictionary(id => (int)id, id => sectors[(int)id]);
+        return new(used, macroSectorIds[0], bytes);
     }
 }

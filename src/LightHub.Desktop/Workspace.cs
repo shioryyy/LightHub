@@ -156,6 +156,7 @@ public sealed class Workspace : Observable
             "truncated" => L["MacroTruncated"],
             "loop" => L["MacroLoop"],
             "invalid-crc" => L["MacroCrc"],
+            "unsupported-format" => L["MacroUnknownFormat"],
             _ => L["MacroOutside"],
         };
         return (L.Chinese ? $"板载宏（扇区 {sector}）：" : $"Onboard macro (sector {sector}): ") + state;
