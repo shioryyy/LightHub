@@ -9,13 +9,38 @@ try
 {
     if (args.Length == 0 || args[0] is "--help" or "help")
     {
-        Console.WriteLine("LightHub CLI\n  list\n  inspect <endpoint-id>\n  trigger-inspect <endpoint-id> (read only; no event capture)\n  backup <endpoint-id> <path>\n  restore <endpoint-id> <path> --yes\n  save <endpoint-id> <sector> <preset.lhpreset> --yes\n  activate <endpoint-id> <sector> [--enable-disabled] --yes\n  smoke <endpoint-id> --write-inactive-and-restore\n  dpi-smoke <endpoint-id>\nIDs come from list. Operation permissions are independent. Backups contain device identity."); return 0;
+        Console.WriteLine("LightHub CLI\n  list\n  inspect <endpoint-id>\n  trigger-inspect <endpoint-id> (read only; no event capture)\n  macros <endpoint-id> (read-only onboard macro sector inspection)\n  backup <endpoint-id> <path>\n  restore <endpoint-id> <path> --yes\n  save <endpoint-id> <sector> <preset.lhpreset> --yes\n  activate <endpoint-id> <sector> [--enable-disabled] --yes\n  smoke <endpoint-id> --write-inactive-and-restore\n  dpi-smoke <endpoint-id>\nIDs come from list. Operation permissions are independent. Backups contain device identity."); return 0;
     }
     var scan = HidDiscovery.Scan();
     foreach (var warning in scan.Warnings) Console.Error.WriteLine(warning);
     if (args[0] == "list") { Console.WriteLine(JsonSerializer.Serialize(scan.Devices.Select(d => new { d.Id, d.Name, productId = d.ProductId.ToString("X4"), d.Slot }), Json.Options)); return 0; }
     if (args.Length < 2) throw new ArgumentException("Endpoint ID required.");
     var endpoint = scan.Devices.SingleOrDefault(d => d.Id == args[1]) ?? throw new IOException("Endpoint not found. Run list again.");
+    if (args[0] == "macros" && args.Length == 2)
+    {
+        using var lease = new DeviceLease(endpoint.PhysicalKey, store.Root);
+        using var transport = new HidTransport(endpoint.Channels, endpoint.Slot);
+        using var device = Hardware.Open(endpoint);
+        var macroSnapshot = device.ReadSnapshot();
+        var ids = OnboardMacroFormat.MacroSectorIds(macroSnapshot);
+        var sectors = ids.Select(id => new { sector = id, blank = macroSnapshot.Sectors[id].All(b => b == 0xFF) });
+        var references = new List<object>();
+        foreach (var entry in macroSnapshot.Directory())
+        {
+            MouseProfile profile;
+            try { profile = MouseProfile.Decode(macroSnapshot.Sectors[entry.Sector], macroSnapshot.Layout); }
+            catch (Exception ex) when (ex is DeviceException or InvalidDataException) { references.Add(new { entry.Slot, entry.Sector, error = ex.Message }); continue; }
+            for (int i = 0; i < profile.Bindings.Length; i++)
+            {
+                var binding = profile.Bindings[i];
+                if (!OnboardMacroFormat.IsMacroPointer(binding)) continue;
+                var macro = OnboardMacroFormat.Decode(macroSnapshot, ids, OnboardMacroFormat.PointerSector(binding), OnboardMacroFormat.PointerOffset(binding));
+                references.Add(new { entry.Slot, entry.Sector, button = i + 1, pointerSector = OnboardMacroFormat.PointerSector(binding), pointerOffset = OnboardMacroFormat.PointerOffset(binding), state = macro.State, steps = macro.Steps.Select(s => s.Describe()) });
+            }
+        }
+        Console.WriteLine(JsonSerializer.Serialize(new { endpoint.Name, macroSectors = sectors, references }, Json.Options));
+        return 0;
+    }
     if (args[0] == "trigger-inspect" && args.Length == 2)
     {
         using var lease = new DeviceLease(endpoint.PhysicalKey, store.Root);
