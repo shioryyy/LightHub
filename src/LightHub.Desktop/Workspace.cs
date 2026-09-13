@@ -278,7 +278,11 @@ public sealed class Workspace : Observable
     }
     private void FillProfiles()
     {
-        Profiles.Clear(); foreach (var entry in Snapshot!.Directory()) Profiles.Add(new(entry.Sector, $"{L["Profile"]} {entry.Slot} · {(entry.Enabled ? L["Enabled"] : L["Disabled"])}{(Snapshot.ActiveSector == entry.Sector ? " ●" : "")}"));
+        Profiles.Clear(); foreach (var entry in Snapshot!.Directory())
+        {
+            var name = ProfileName.Read(Snapshot, entry.Sector);
+            Profiles.Add(new(entry.Sector, $"{L["Profile"]} {entry.Slot} · {(entry.Enabled ? L["Enabled"] : L["Disabled"])}{(name is null ? "" : " · " + name)}{(Snapshot.ActiveSector == entry.Sector ? " ●" : "")}"));
+        }
     }
     public void LoadProfile(int sector)
     {
@@ -362,7 +366,21 @@ public sealed class Workspace : Observable
         await session!.Restore(path, p => Dispatcher.UIThread.Post(() => Status = p));
         await Read(CancellationToken.None); Status = L["Saved"];
     }
-    public string RedactedDiagnostics() => JsonSerializer.Serialize(new { app = "LightHub 0.3.0-alpha.1", platform = DeviceCatalog.Platform, runtime = Environment.Version.ToString(), os = Environment.OSVersion.VersionString, model = Snapshot?.Identity.Name, productIds = Snapshot?.Identity.ProductIds, firmware = Snapshot?.Identity.Firmware, layout = Snapshot?.Layout, support = Support, operations, dpiCapabilities = DpiCaps, rates = Rates }, Json.Options);
+    // Diagnostics never include unit IDs, raw memory, mappings, profile names or
+    // macro step content; macro coverage is summarized as counts and states only.
+    public string RedactedDiagnostics() => JsonSerializer.Serialize(new { app = Program.VersionText, platform = DeviceCatalog.Platform, runtime = Environment.Version.ToString(), os = Environment.OSVersion.VersionString, model = Snapshot?.Identity.Name, productIds = Snapshot?.Identity.ProductIds, firmware = Snapshot?.Identity.Firmware, layout = Snapshot?.Layout, support = Support, operations, dpiCapabilities = DpiCaps, rates = Rates, onboardMacros = Snapshot is null ? null : OnboardMacroSummary(Snapshot) }, Json.Options);
+    private static object? OnboardMacroSummary(DeviceSnapshot snapshot)
+    {
+        var ids = OnboardMacroFormat.MacroSectorIds(snapshot);
+        var pointers = snapshot.Directory().SelectMany(e => (SafeDecode(snapshot, e.Sector)?.Bindings ?? []).Select(b => (Entry: e, Binding: b))).Where(x => OnboardMacroFormat.IsMacroPointer(x.Binding)).ToList();
+        var states = pointers.GroupBy(p => OnboardMacroFormat.Decode(snapshot, ids, OnboardMacroFormat.PointerSector(p.Binding), OnboardMacroFormat.PointerOffset(p.Binding)).State).ToDictionary(g => g.Key, g => g.Count());
+        return new { macroSectors = ids.Length, blankSectors = ids.Count(id => snapshot.Sectors[id].All(b => b == 0xFF)), pointerBindings = pointers.Count, states };
+    }
+    private static MouseProfile? SafeDecode(DeviceSnapshot snapshot, int sector)
+    {
+        try { return MouseProfile.Decode(snapshot.Sectors[sector], snapshot.Layout); }
+        catch (Exception ex) when (ex is DeviceException or InvalidDataException) { return null; }
+    }
     public async Task RefreshBackupsAsync()
     {
         try

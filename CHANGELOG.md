@@ -30,6 +30,12 @@
   state reporting for blank, unsupported, truncated, looping or damaged content.
 - Add issue templates, including a structured device-support report that feeds the
   evidence-gated catalog process.
+- Read-only onboard profile names (memory model 1 layout A): the editor shows a
+  stored name next to each profile slot and `inspect` lists it; undecodable content
+  is reported as absent. Renaming still requires a validated write driver.
+- Redacted diagnostics now summarize onboard macro coverage as counts and states;
+  step content, profile names and unit identity stay excluded. The app version line
+  no longer names a stale release.
 - Add read-only onboard macro inspection (M4 step one): strict-bounds parsing of
   macro-format-1 sectors and binding pointers, with unknown opcodes, truncated
   streams, loops and CRC damage reported as states instead of guesses. New

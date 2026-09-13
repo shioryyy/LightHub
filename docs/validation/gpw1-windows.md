@@ -110,7 +110,9 @@ battery 4122 mV), alpha.2 candidate source 701802e, Windows 10.0.26200, tester p
   profile binding on this unit. All macro sectors are factory-blank (0xFF) and no
   binding carries a macro pointer, matching a never-macroed onboard configuration;
   the strict-bounds parser reported the blank state without any write traffic.
-  First real-device evidence for the M4 read-only parsing step.
+  First real-device evidence for the M4 read-only parsing step. The profile-name
+  area (0xA0, 24 UTF-16LE units) is also factory-blank on this unit, matching the
+  layout-A reference; the name reader reports no name for every slot.
 
 Remaining for this unit: multiple simultaneous receivers remain unverified and are
 recorded as such in the release checklist. Production

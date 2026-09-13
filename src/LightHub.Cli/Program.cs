@@ -54,7 +54,7 @@ try
     switch (args[0])
     {
         case "inspect" when args.Length == 2:
-            Console.WriteLine(JsonSerializer.Serialize(new { snapshot.Identity.Name, snapshot.Identity.ProductIds, snapshot.Identity.Firmware, snapshot.Identity.DeviceType, snapshot.Layout, read.Support, read.Operations, read.DpiCaps, read.Rates, read.Telemetry, snapshot.Mode, snapshot.ActiveSector, snapshot.DpiIndex, profiles = snapshot.Directory() }, Json.Options)); break;
+            Console.WriteLine(JsonSerializer.Serialize(new { snapshot.Identity.Name, snapshot.Identity.ProductIds, snapshot.Identity.Firmware, snapshot.Identity.DeviceType, snapshot.Layout, read.Support, read.Operations, read.DpiCaps, read.Rates, read.Telemetry, snapshot.Mode, snapshot.ActiveSector, snapshot.DpiIndex, profiles = snapshot.Directory().Select(e => new { e.Slot, e.Sector, e.Enabled, name = ProfileName.Read(snapshot, e.Sector) }) }, Json.Options)); break;
         case "backup" when args.Length == 3: BackupFile.Save(args[2], snapshot); Console.WriteLine("Backup verified: " + Path.GetFullPath(args[2])); break;
         case "save" when args.Length == 5 && args[4] == "--yes":
             int target = int.Parse(args[2]); var preset = LocalAssets.Read(args[3]);

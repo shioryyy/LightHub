@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using System.Text;
 using LightHub.Desktop;
 using Xunit;
 
@@ -164,6 +165,69 @@ public sealed class MacroInfoUiTests
             vm.Button = w.Model.Buttons[1];
             Assert.StartsWith("板载宏", vm.OnboardMacroInfo);
             Assert.Contains("wait 120 ms", vm.OnboardMacroInfo);
+        }
+        finally { w.Close(); }
+    }
+}
+
+public sealed class ProfileNameTests
+{
+    private static void WriteName(DeviceSnapshot s, string? name)
+    {
+        var data = s.Sectors[1];
+        for (int i = 0; i < 48; i++) data[ProfileName.Offset + i] = 0xFF;
+        if (name is not null) Encoding.Unicode.GetBytes(name).CopyTo(data, ProfileName.Offset);
+        Wire.UpdateCrc(data);
+    }
+    [Fact]
+    public void TerminatedUtf16NameIsRead()
+    {
+        var s = DemoData.Create();
+        WriteName(s, "G HUB");
+        Assert.Equal("G HUB", ProfileName.Read(s, 1));
+        WriteName(s, null);
+        Assert.Null(ProfileName.Read(s, 1));
+    }
+    [Fact]
+    public void TerminatorAndShortNamesStopParsing()
+    {
+        var s = DemoData.Create();
+        var data = s.Sectors[1];
+        Encoding.Unicode.GetBytes("AB").CopyTo(data, ProfileName.Offset);
+        data[ProfileName.Offset + 4] = 0xFF; data[ProfileName.Offset + 5] = 0xFF; // explicit terminator
+        Wire.UpdateCrc(data);
+        Assert.Equal("AB", ProfileName.Read(s, 1));
+    }
+    [Fact]
+    public void ControlCharactersAndLoneSurrogatesAreRejected()
+    {
+        var s = DemoData.Create();
+        var data = s.Sectors[1];
+        data[ProfileName.Offset] = 0x07; data[ProfileName.Offset + 1] = 0x00; // control char
+        data[ProfileName.Offset + 2] = 0x41; data[ProfileName.Offset + 3] = 0x00;
+        Wire.UpdateCrc(data);
+        Assert.Null(ProfileName.Read(s, 1));
+        data[ProfileName.Offset] = 0x00; data[ProfileName.Offset + 1] = 0xD8; // lone high surrogate
+        Wire.UpdateCrc(data);
+        Assert.Null(ProfileName.Read(s, 1));
+    }
+    [AvaloniaFact]
+    public async Task DiagnosticsSummarizeMacrosWithoutStepContent()
+    {
+        var w = new MainWindow(true); w.Show(); await w.Initialization; Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var s = w.Model.Snapshot!;
+            s.Sectors[9][0] = 0x43; s.Sectors[9][1] = 0x02; s.Sectors[9][2] = 0x06;
+            s.Sectors[9][3] = 0x44; s.Sectors[9][4] = 0x02; s.Sectors[9][5] = 0x06; s.Sectors[9][6] = 0xFF;
+            Wire.UpdateCrc(s.Sectors[9]);
+            byte[] pointer = [0x00, 0x09, 0x00, 0x00];
+            pointer.CopyTo(s.Sectors[1], 32 + 4);
+            Wire.UpdateCrc(s.Sectors[1]);
+            var text = w.Model.RedactedDiagnostics();
+            Assert.Contains("\"pointerBindings\": 1", text);
+            Assert.DoesNotContain("shift+c", text);
+            Assert.DoesNotContain("0x09", text);
         }
         finally { w.Close(); }
     }
