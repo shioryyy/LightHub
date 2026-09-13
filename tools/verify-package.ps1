@@ -58,8 +58,29 @@ if ($Runtime.StartsWith('win-')) {
         }
     } finally { $zip.Dispose() }
 } else {
+    # The archive must be verified member by member: tar extraction silently lets a
+    # later member overwrite an earlier one, so a wrong-content member followed by a
+    # correct duplicate would otherwise escape the extracted-tree comparison. List
+    # every member first (duplicates, unexpected names, traversal), then compare the
+    # extracted content.
+    $rootName = Split-Path -Leaf $packageRoot
+    $tarListArgs = @('-tzf', $archive)
+    if ((tar --version) -match 'GNU tar') { $tarListArgs += '--force-local' }
+    $members = & tar @tarListArgs
+    if ($LASTEXITCODE -ne 0) { throw 'Archive listing failed' }
+    foreach ($raw in $members) {
+        $name = $raw.Replace('\', '/').TrimEnd('/')
+        if ([string]::IsNullOrEmpty($name) -or $name -eq $rootName) { continue }
+        if (-not $name.StartsWith("$rootName/", [StringComparison]::Ordinal)) { throw "Archive entry outside the package folder: $raw" }
+        $relative = $name.Substring($rootName.Length + 1)
+        if ($relative -match '(^|/)\.\.?(/|$)') { throw "Unsafe archive entry: $relative" }
+        if ($raw.EndsWith('/')) { continue }
+        if (-not $expected.ContainsKey($relative)) { throw "Archive entry is unsafe or not part of the verified directory: $relative" }
+        if (-not $seen.Add($relative)) { throw "Duplicate archive entry: $relative" }
+    }
     # .NET's TarReader mishandles PAX entry names, so extract with the platform tar
-    # tool and compare the extracted tree against the verified directory instead.
+    # tool and compare the extracted tree against the verified directory as well;
+    # this catches a single wrong-content member that no later member overwrites.
     $temp = Join-Path ([IO.Path]::GetTempPath()) ("lhverify-" + [Guid]::NewGuid().ToString("N"))
     try {
         New-Item -ItemType Directory -Path $temp | Out-Null
@@ -68,12 +89,11 @@ if ($Runtime.StartsWith('win-')) {
         & tar @tarArgs
         if ($LASTEXITCODE -ne 0) { throw 'Archive extraction failed' }
         $roots = @(Get-ChildItem -LiteralPath $temp)
-        if ($roots.Count -ne 1 -or -not $roots[0].PSIsContainer -or $roots[0].Name -ne (Split-Path -Leaf $packageRoot)) { throw 'Archive root layout does not match the package folder' }
+        if ($roots.Count -ne 1 -or -not $roots[0].PSIsContainer -or $roots[0].Name -ne $rootName) { throw 'Archive root layout does not match the package folder' }
         $root = $roots[0].FullName
         foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File) {
             $relative = [IO.Path]::GetRelativePath($root, $file.FullName).Replace('\','/')
             if (-not $expected.ContainsKey($relative)) { throw "Archive entry is unsafe or not part of the verified directory: $relative" }
-            if (-not $seen.Add($relative)) { throw "Duplicate archive entry: $relative" }
             if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash -ne $expected[$relative]) { throw "Archive entry differs from the verified directory: $relative" }
         }
     } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force } }
