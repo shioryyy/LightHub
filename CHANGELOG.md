@@ -1,30 +1,8 @@
 # Changelog
 
 ## Unreleased
+### 0.3.0-alpha.3
 
-- Candidate 0.3.0-alpha.2: focused physical-button editor with action search, explicit
-  save targets and compact DPI-stage cards. Device control metadata lives in the catalog.
-- Preserve current sensitivity when disabled DPI stages are compacted; reject disabled
-  default/Shift references and keep sparse or invalid edits intact across language changes.
-- Prepare separately gated slot enable/activation with directory-only updates and
-  recovery tests. Production activation permissions remain closed pending hardware evidence.
-- Handle HID++ 2.0 INVALID_FEATURE_INDEX during optional feature discovery without
-  hiding other protocol errors.
-- Fix headless dispatcher initialization and macOS parent-path aliases; exercise
-  Windows reparse boundaries with junctions when symbolic-link privileges are absent.
-- Include source commit/dirty provenance, verify package contents and reconstruct
-  the source archive in CI. A source archive's commit remains a declaration.
-- Add an offline macro library and bilingual manual editor: bounded keyboard steps,
-  reordering, duplication, import/export, retained invalid drafts and recoverable deletion.
-- Protect macro saves with revision checks and a library lease; preserve unknown
-  formats and isolate corrupt files. Local saves never write to the device or execute input.
-- Add read-only `trigger-inspect` CLI diagnostics; no diversion, remapping or input capture.
-- Keep onboard macro writing, binding and the software runner disabled pending evidence.
-- Exclude personal macro/draft files from source archives and build manifests.
-- Use a shared headless test dispatcher for Skia's render loop; retain isolated test data/windows.
-- Fix nullable battery-voltage formatting; unavailable/zero voltage is shown as unknown.
-- Runtime values refresh after explicit actions; the idle UI does not poll HID.
-- Bind the status progress bar to the busy state so the idle window runs no animation.
 - Show what a macro-pointer button binding refers to in the device editor, read
   only and in both languages: decoded steps for complete macros, and verbatim
   state reporting for blank, unsupported, truncated, looping or damaged content.
@@ -49,6 +27,32 @@
   macro-format-1 sectors and binding pointers, with unknown opcodes, truncated
   streams, loops and CRC damage reported as states instead of guesses. New
   `macros <endpoint-id>` CLI listing; no byte is ever rewritten.
+
+### 0.3.0-alpha.2
+
+- Candidate 0.3.0-alpha.2: focused physical-button editor with action search, explicit
+  save targets and compact DPI-stage cards. Device control metadata lives in the catalog.
+- Preserve current sensitivity when disabled DPI stages are compacted; reject disabled
+  default/Shift references and keep sparse or invalid edits intact across language changes.
+- Prepare separately gated slot enable/activation with directory-only updates and
+  recovery tests. Production activation permissions remain closed pending hardware evidence.
+- Handle HID++ 2.0 INVALID_FEATURE_INDEX during optional feature discovery without
+  hiding other protocol errors.
+- Fix headless dispatcher initialization and macOS parent-path aliases; exercise
+  Windows reparse boundaries with junctions when symbolic-link privileges are absent.
+- Include source commit/dirty provenance, verify package contents and reconstruct
+  the source archive in CI. A source archive's commit remains a declaration.
+- Add an offline macro library and bilingual manual editor: bounded keyboard steps,
+  reordering, duplication, import/export, retained invalid drafts and recoverable deletion.
+- Protect macro saves with revision checks and a library lease; preserve unknown
+  formats and isolate corrupt files. Local saves never write to the device or execute input.
+- Add read-only `trigger-inspect` CLI diagnostics; no diversion, remapping or input capture.
+- Keep onboard macro writing, binding and the software runner disabled pending evidence.
+- Exclude personal macro/draft files from source archives and build manifests.
+- Use a shared headless test dispatcher for Skia's render loop; retain isolated test data/windows.
+- Fix nullable battery-voltage formatting; unavailable/zero voltage is shown as unknown.
+- Runtime values refresh after explicit actions; the idle UI does not poll HID.
+- Bind the status progress bar to the busy state so the idle window runs no animation.
 - Harden the engineering probe and release verification after independent review:
   corrupt-state restore entry, explicit warm-dpi execute flag with durable recovery
   markers, and full archive-content checks in verify-package.
